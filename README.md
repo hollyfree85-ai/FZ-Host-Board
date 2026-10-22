@@ -69,3 +69,7 @@ Section, server and beeper callouts occupy free space near their tables, with le
 
 ## v1.2.12 — Staggered shift arrivals
 Formation & Servers saves each section separately beside its employee selector. No complete-team startup button is required. AM and PM retain separate formations, server rows and rotation entries; later arrivals append without resetting saved parties or skips. Unassigned sections remain empty. All 67 tests pass, including first arrival, late arrivals, stale-section protection and independent AM/PM formations.
+
+
+## v1.2.13 — Dark theme and shift controls
+Darker Board/Floor surfaces and larger bold employee, section and beeper labels. Formation & Servers saves beeper, AM/PM/Double/Long shift, Long start time and extra PM last-cut selection with each section assignment. Cut guidance follows Chicago time; BAR and PM Section 1 remain protected last-cut. Actual CUT requires manager confirmation. All 70 tests pass, including atomic beeper uniqueness and weekday/Long/PM cut rules. Physical-device visual verification remains outstanding.
