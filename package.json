@@ -1,0 +1,17 @@
+{
+  "name": "fz-host-board-next",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Realtime host Board and Floor with atomic party operations",
+  "scripts": {
+    "test": "node --test tests/*.cjs",
+    "check": "node scripts/check.cjs",
+    "daily-reset": "node scripts/daily-reset.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  }
+}
