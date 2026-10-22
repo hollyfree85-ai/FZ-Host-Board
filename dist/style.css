@@ -76,3 +76,22 @@ html{color-scheme:light}body,#app,main,.pane,#board,#more,#floor,.map{background
 nav button,button[data-pane]{background:linear-gradient(145deg,#227ac2,#124a89)!important;border-color:#69afe0!important;color:#fff!important}
 nav button.active,button[data-pane].active{background:linear-gradient(145deg,#168ed1,#1565ae)!important;border-color:#69d5f5!important;box-shadow:inset 0 2px #b6edff66,0 0 0 1px #2886bb55!important}
 .turn.empty{background:linear-gradient(145deg,#edf6ff,#d1e7fa)!important;border-color:#7aadd5!important;box-shadow:inset 0 1px #fff!important}
+
+/* Black and champagne gold; operational table colors remain unambiguous. */
+html{color-scheme:dark}body,#app,main,.pane,#board,#more,#floor,.map{background:#111214!important;background-image:none!important;color:#f4f0e7!important}
+.floor-shortcuts,.floor-formation{background:#111214!important;color:#d8c69d!important}
+.board-row,.op-card,.next-card,.settings,.settings-bar,.role-card{background:linear-gradient(135deg,#28282a,#1b1c1f)!important;color:#f6f2ea!important;border-color:#756747!important;box-shadow:0 4px 12px #0004,inset 0 1px #e4c98822!important}
+.board-row.next,.next-card{background:linear-gradient(135deg,#353025,#25231f)!important;border-color:#bba26a!important;box-shadow:inset 4px 0 #bba26a,0 4px 12px #0004!important}
+.map .table.ready{background:#fff!important;color:#17202b!important;border:2px solid #c3c7cc!important;box-shadow:0 2px 4px #0004!important}
+.map .table.seated{background:#b92f40!important;color:#fff!important;border-color:#e97884!important;box-shadow:0 2px 4px #0004!important}
+.map .table.ready.reserved{background:#205eaa!important;color:#fff!important;border-color:#82b6ed!important}
+.map .table.cleaning{background:#a77b2e!important;color:#fff!important;border-color:#d6b06b!important}
+.map .table.selected{outline:3px solid #d0b675!important;outline-offset:2px}
+.map .zone{background:#232428!important;color:#aeb1b8!important;border-color:#43454a!important}.map .door{color:#d8c18b!important}
+nav,footer,.statusbar{background:#17181b!important}nav button,button[data-pane]{background:linear-gradient(145deg,#303033,#202124)!important;border-color:#716449!important;color:#ede5d5!important}
+nav button.active,button[data-pane].active{background:linear-gradient(145deg,#57492f,#3e3526)!important;border-color:#c5ab70!important;box-shadow:inset 0 1px #e9cf9455!important}
+.turn.empty{background:#292b30!important;border-color:#66686e!important;box-shadow:inset 0 1px #ffffff0d!important}
+#sectionLabels .section-marker,#sectionOverflow .section-marker{background:#202226!important;border-color:#aa9464!important}
+#sectionLabels .section-server,#sectionOverflow .section-server{background:#303238!important;color:#fff!important;border-color:#737780!important}
+#sectionLabels .section-number,#sectionOverflow .section-number{background:#4b432f!important;color:#fff3d5!important;border-color:#b7a06a!important}
+#sectionOverflow{background:#111214!important}.section-empty{color:#d8c69d!important}

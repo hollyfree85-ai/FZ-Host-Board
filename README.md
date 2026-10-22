@@ -58,3 +58,6 @@ White Board, Floor and More backgrounds with blue operational cards and ready ta
 
 ### 1.2.17
 Refined white-and-sapphire finish with crisp blue cards, subtle cyan accents and dimensional borders.
+
+### 1.2.18
+Black and champagne gold canvas; ready tables white, occupied tables red, assigned current-day reservations blue. Optional reservation table selection updates Floor in realtime; occupied and cleaning status take priority. Reservation blue expires one hour after its scheduled time.
