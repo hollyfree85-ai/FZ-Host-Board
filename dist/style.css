@@ -130,3 +130,6 @@ nav button.active,button[data-pane].active{background:linear-gradient(#2d83e9,#1
 #sectionOverflow{background:#f3f4f6!important}.section-empty{color:#384859!important}
 
 .row-clear{grid-column:1/-1;min-height:36px;font-weight:900;background:#8c2432!important;color:#fff!important;border-color:#d87985!important}
+
+/* BAR automatic rotation skips: black with white text. */
+.turn.auto{background:#000!important;background-image:none!important;color:#fff!important;border-color:#8b949e!important;box-shadow:none!important}.turn.auto b,.turn.auto small{color:#fff!important}

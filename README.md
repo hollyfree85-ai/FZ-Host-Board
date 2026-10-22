@@ -82,3 +82,6 @@ Next Server uses the same numeric section order as Board when rotation turns tie
 
 ### 1.2.25
 READY closes the Floor status panel after database confirmation without opening a seating dialog. Rotation keeps the same next server when another server is seated out of turn.
+
+### 1.2.26
+BAR automatic SKIP cells use black backgrounds and white text, distinct from amber manual skips.
