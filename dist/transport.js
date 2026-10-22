@@ -11,7 +11,7 @@ class HostConnection{
   attach(this.liveRef,s=>{this.raw=s.val();this.adopt();});return this;
  }
  adopt(){if(this.raw&&this.config){this.state=HostCore.normalize(this.raw,this.config);this.onState(this.state);let pending;try{pending=JSON.parse(localStorage.getItem(this.pendingKey)||'null');}catch(_){}if(pending&&this.state.receipts[pending.id])localStorage.removeItem(this.pendingKey);this.status();}}
- command(type,values={}){return {id:'op_'+this.now()+'_'+crypto.randomUUID(),type,at:this.now(),day:this.state?.day,shift:'PM',...values};}
+ command(type,values={}){return {id:'op_'+this.now()+'_'+HostCore.uid(),type,at:this.now(),day:this.state?.day,shift:'PM',...values};}
  async run(cmd){
   if(this.busy)throw Error('An operation is still waiting for confirmation.');if(!this.connected||!this.state||!this.config)throw Error('Not connected. Wait for LIVE before changing the Board.');
   let previous;try{previous=JSON.parse(localStorage.getItem(this.pendingKey)||'null');}catch(_){}

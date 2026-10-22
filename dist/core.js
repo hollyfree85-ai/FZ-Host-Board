@@ -2,6 +2,7 @@
 'use strict';
 const copy=x=>JSON.parse(JSON.stringify(x)),list=x=>Array.isArray(x)?x:Object.values(x||{}),fail=(m,code='INVALID')=>{const e=new Error(m);e.code=code;throw e;};
 const canonical=s=>String(s||'').trim().replace(/^AJ$/i,'A.J.');
+function uid(){const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const h=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
 function dayAt(at=Date.now()){const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date(at)).map(x=>[x.type,x.value]));const d=new Date(p.year+'-'+p.month+'-'+p.day+'T12:00:00Z');if(+p.hour<4)d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10);}
 function emptyShift(){return {formation:'',rows:[],assignments:{}};}
 function initial(config,at=Date.now()){return {schema:1,day:dayAt(at),revision:0,updatedAt:at,shifts:{AM:emptyShift(),PM:emptyShift()},tables:Object.fromEntries(config.tables.map(t=>[t.id,{status:'ready'}])),parties:{},undo:{},receipts:{}};}
@@ -50,5 +51,5 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  }
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];return validate(s);
 }
-return {copy,list,canonical,dayAt,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
+return {copy,list,canonical,uid,dayAt,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
 });
