@@ -54,3 +54,15 @@ html{color-scheme:dark}body,#app,main,.pane,#board,#more{background:#0b1622!impo
 #sectionLabels .section-server{font-size:var(--label-name,16px)!important;line-height:1.05!important;padding:1px!important;min-height:0!important}
 #sectionLabels .section-beeper{font-size:var(--label-beeper,14px)!important;padding:0 2px!important;line-height:1.1!important;min-height:0!important}
 #sectionLabels .section-number{width:100%!important;height:auto!important;min-height:0!important;font-size:var(--label-name,16px)!important;align-self:stretch!important}
+
+/* White canvas with blue operational cards — 1.2.16. */
+html{color-scheme:light}body,#app,main,.pane,#board,#more,#floor,.map{background:#fff!important;background-image:none!important;color:#153553!important}
+.floor-shortcuts,.floor-formation{background:#fff!important;color:#153553!important}
+.board-row,.op-card,.next-card,.settings,.settings-bar,.role-card{background:linear-gradient(145deg,#235787,#163f69)!important;color:#fff!important;border-color:#4479a7!important}
+.board-row.next,.next-card{background:linear-gradient(145deg,#2d6594,#1e4d77)!important;color:#fff!important;border-color:#b59b4f!important}
+.board-row small,.board-row .cut-advice,.op-card small,.next-card small,.next-card #nextReady{color:#edf5ff!important}
+.turn.empty{background:#dceafa!important;border-color:#80a3c5!important}
+.map .table.ready{background:linear-gradient(145deg,#2c669c,#1c4e80)!important;color:#fff!important;border-color:#17446f!important;box-shadow:0 2px 4px #183d6426,inset 0 1px #ffffff40!important}
+.map .zone{background:#edf2f7!important;color:#3f5266!important;border-color:#aab9c7!important}.map .door{color:#85451c!important}
+#sectionLabels .section-marker,#sectionOverflow .section-marker{background:#e8f0fa!important;border-color:#426f98!important;box-shadow:0 2px 5px #23496b33!important}
+#sectionOverflow{background:#fff!important}.section-empty{color:#244d73!important}

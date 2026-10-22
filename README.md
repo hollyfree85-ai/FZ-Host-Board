@@ -52,3 +52,6 @@ Edit Table Map moves table membership between sections. Edit Formation changes f
 
 ### 1.2.15
 Floor identity cards adapt to available space beside their own sections, including five and nine servers, instead of collecting below the map.
+
+### 1.2.16
+White Board, Floor and More backgrounds with blue operational cards and ready table boxes. Occupied and cleaning table status colors stay distinct.
