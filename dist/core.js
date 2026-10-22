@@ -22,6 +22,12 @@ function available(s,ids,own=''){if(new Set(ids).size!==ids.length)fail('Choose 
 function risk(s,shift,rowId,at){const r=rowOf(s,shift,rowId),guard=['megan meadows','megan meadow','a.j.','jesus ovalle-munoz','mia burress','mia gibson','ashley garcia'].includes(canonical(r.server).toLowerCase());return r.entries.filter(e=>e.kind==='party'&&at-e.at<300000&&at>=e.at&&(guard||e.people>5)).map(e=>({id:e.id,table:e.primary,people:e.people,at:e.at}));}
 function countPeople(v){const n=Number(v);if(!Number.isInteger(n)||n<1||n>120)fail('Enter 1–120 guests.');return n;}
 function validate(s){const entries=new Map();for(const sh of ['AM','PM'])for(const r of s.shifts[sh].rows){checkSpace(r);for(const e of r.entries){if(entries.has(e.id))fail('Duplicate Board entry.');entries.set(e.id,{row:r.id,shift:sh,e});}}for(const p of Object.values(s.parties)){const ref=entries.get(p.id);if(!ref||ref.shift!==p.shift||ref.row!==p.rowId||ref.e.kind!=='party')fail('Party has no matching Board entry.');for(const id of members(p))if(s.tables[id]?.partyId!==p.id||s.tables[id]?.status!=='seated')fail('Party / Floor link is incomplete.');}for(const t of Object.values(s.tables))if(t.partyId&&!s.parties[t.partyId])fail('Floor has an unresolved party.');return s;}
+function placeSectionLabels(width,height,tables,groups,extras=[]){
+ const gap=4,cardWidth=width>=1000?176:width>=600?140:108,cardHeight=width>=600?62:54;
+ const obstacles=tables.map(t=>{const angle=(t.r||0)*Math.PI/180,w=width*t.w/100,h=height*Math.max(5,t.h)/100,rw=Math.abs(w*Math.cos(angle))+Math.abs(h*Math.sin(angle)),rh=Math.abs(w*Math.sin(angle))+Math.abs(h*Math.cos(angle));return {x:width*t.x/100-rw/2,y:height*Math.min(t.y,94)/100-rh/2,w:rw,h:rh};}).concat(extras);
+ const overlap=(a,b)=>a.x<b.x+b.w+gap&&a.x+a.w+gap>b.x&&a.y<b.y+b.h+gap&&a.y+a.h+gap>b.y;
+ return groups.map(group=>{const own=tables.filter(t=>group.tables.includes(t.id));if(!own.length)return null;const anchor={x:own.reduce((n,t)=>n+t.x,0)/own.length*width/100,y:own.reduce((n,t)=>n+Math.min(t.y,94),0)/own.length*height/100};const xs=new Set([gap,width-cardWidth-gap,Math.max(gap,Math.min(width-cardWidth-gap,anchor.x-cardWidth/2))]),ys=new Set([gap,height-cardHeight-gap,Math.max(gap,Math.min(height-cardHeight-gap,anchor.y-cardHeight/2))]);for(const o of obstacles){xs.add(o.x-cardWidth-gap);xs.add(o.x+o.w+gap);ys.add(o.y-cardHeight-gap);ys.add(o.y+o.h+gap);}let best=null,score=Infinity;for(const x of xs){if(x<gap||x+cardWidth>width-gap)continue;for(const y of ys){if(y<gap||y+cardHeight>height-gap)continue;const d=(x+cardWidth/2-anchor.x)**2+(y+cardHeight/2-anchor.y)**2;if(d>=score)continue;const rect={x,y,w:cardWidth,h:cardHeight};if(obstacles.some(o=>overlap(rect,o)))continue;best={...rect,anchor};score=d;}}if(best)obstacles.push(best);return best;});
+}
 function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.id||!cmd.type||!Number.isFinite(cmd.at))fail('Invalid command.');if(s.receipts[cmd.id])return s;if(now-cmd.at>120000&&cmd.type!=='DAILY_RESET')fail('This operation is too old. Reopen the table.','EXPIRED');
  if(cmd.type==='DAILY_RESET'){const day=dayAt(cmd.at);if(s.day>=day)return s;s=initial(config,cmd.at);s.lastResetAt=cmd.at;}
  else{
@@ -61,5 +67,5 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  }
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];return validate(s);
 }
-return {copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
+return {placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
 });
