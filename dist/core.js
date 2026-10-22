@@ -22,8 +22,16 @@ function available(s,ids,own=''){if(new Set(ids).size!==ids.length)fail('Choose 
 function risk(s,shift,rowId,at){const r=rowOf(s,shift,rowId),guard=['megan meadows','megan meadow','a.j.','jesus ovalle-munoz','mia burress','mia gibson','ashley garcia'].includes(canonical(r.server).toLowerCase());return r.entries.filter(e=>e.kind==='party'&&at-e.at<300000&&at>=e.at&&(guard||e.people>5)).map(e=>({id:e.id,table:e.primary,people:e.people,at:e.at}));}
 function countPeople(v){const n=Number(v);if(!Number.isInteger(n)||n<1||n>120)fail('Enter 1–120 guests.');return n;}
 function validate(s){const entries=new Map();for(const sh of ['AM','PM'])for(const r of s.shifts[sh].rows){checkSpace(r);for(const e of r.entries){if(entries.has(e.id))fail('Duplicate Board entry.');entries.set(e.id,{row:r.id,shift:sh,e});}}for(const p of Object.values(s.parties)){const ref=entries.get(p.id);if(!ref||ref.shift!==p.shift||ref.row!==p.rowId||ref.e.kind!=='party')fail('Party has no matching Board entry.');for(const id of members(p))if(s.tables[id]?.partyId!==p.id||s.tables[id]?.status!=='seated')fail('Party / Floor link is incomplete.');}for(const t of Object.values(s.tables))if(t.partyId&&!s.parties[t.partyId])fail('Floor has an unresolved party.');return s;}
+function cutAdvice(state,shift,row,now=Date.now()){
+ const day=new Date(state.day+'T12:00:00Z').getUTCDay(),weekend=day===0||day>=5,lateNight=day===5||day===6,sections=String(row.section).split(' / '),bar=sections.some(s=>/BAR/i.test(s)),work=row.workShift||shift;
+ const minute=Number(new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(now).filter(p=>p.type==='hour'||p.type==='minute').map(p=>p.value).join(''));
+ const long2=Object.values(state.shifts).some(b=>list(b.rows).some(r=>!r.cut&&r.workShift==='Long Shift'&&(r.longStart||'14:00')==='14:00'));
+ let time='',protectedLast=false,reason='';if(shift==='AM'){if(bar)return {label:'BAR · last cut',protectedLast:true,due:false,time:''};if(work==='Double'){time=long2?'14:00':weekend?'15:00':'15:30';reason=long2?'Long 2 PM has arrived':'Double AM cut';}else return {label:work==='Long Shift'?'Long starts '+(row.longStart||'14:00'):'Manager cut',due:false,time:''};}
+ else{protectedLast=bar||sections.includes('1')||!!row.lastCut;if(protectedLast)return {label:'LAST CUT · '+(bar?'BAR':sections.includes('1')?'Section 1':'Selected PM section'),protectedLast:true,due:false,time:''};if(work==='Double'||work==='Long Shift'){time=lateNight?'21:30':'20:30';reason='Double / Long PM cut';}else if(work==='PM'){time=lateNight?'22:00':'21:00';reason='PM cut';}else return {label:'Manager cut',due:false,time:''};}
+ const [h,m]=time.split(':').map(Number),due=minute>=h*100+m;return {time,due,protectedLast,label:(due?'CUT DUE · ':'CUT ')+(h>12?h-12:h)+':'+String(m).padStart(2,'0')+' PM · '+reason};
+}
 function placeSectionLabels(width,height,tables,groups,extras=[]){
- const gap=4,cardWidth=width>=1000?176:width>=600?140:108,cardHeight=width>=600?62:54;
+ const gap=4,cardWidth=width>=1000?214:width>=600?180:132,cardHeight=width>=600?82:68;
  const obstacles=tables.map(t=>{const angle=(t.r||0)*Math.PI/180,w=width*t.w/100,h=height*Math.max(5,t.h)/100,rw=Math.abs(w*Math.cos(angle))+Math.abs(h*Math.sin(angle)),rh=Math.abs(w*Math.sin(angle))+Math.abs(h*Math.cos(angle));return {x:width*t.x/100-rw/2,y:height*Math.min(t.y,94)/100-rh/2,w:rw,h:rh};}).concat(extras);
  const overlap=(a,b)=>a.x<b.x+b.w+gap&&a.x+a.w+gap>b.x&&a.y<b.y+b.h+gap&&a.y+a.h+gap>b.y;
  return groups.map(group=>{const own=tables.filter(t=>group.tables.includes(t.id));if(!own.length)return null;const anchor={x:own.reduce((n,t)=>n+t.x,0)/own.length*width/100,y:own.reduce((n,t)=>n+Math.min(t.y,94),0)/own.length*height/100};const xs=new Set([gap,width-cardWidth-gap,Math.max(gap,Math.min(width-cardWidth-gap,anchor.x-cardWidth/2))]),ys=new Set([gap,height-cardHeight-gap,Math.max(gap,Math.min(height-cardHeight-gap,anchor.y-cardHeight/2))]);for(const o of obstacles){xs.add(o.x-cardWidth-gap);xs.add(o.x+o.w+gap);ys.add(o.y-cardHeight-gap);ys.add(o.y+o.h+gap);}let best=null,score=Infinity;for(const x of xs){if(x<gap||x+cardWidth>width-gap)continue;for(const y of ys){if(y<gap||y+cardHeight>height-gap)continue;const d=(x+cardWidth/2-anchor.x)**2+(y+cardHeight/2-anchor.y)**2;if(d>=score)continue;const rect={x,y,w:cardWidth,h:cardHeight};if(obstacles.some(o=>overlap(rect,o)))continue;best={...rect,anchor};score=d;}}if(best)obstacles.push(best);return best;});
@@ -44,6 +52,10 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
   const current=b.rows.find(r=>!r.cut&&String(r.section).split(' / ').includes(sec));if(cmd.expectedOwner!==undefined&&(current?.id||'')!==cmd.expectedOwner)fail('This section changed on another device. Reopen Formation & Servers.','CONFLICT');
   let target=b.rows.find(r=>!r.cut&&canonical(r.server)===server)||b.rows.find(r=>canonical(r.server)===server);if(!target){target={id:'row_'+cmd.id,server,section:'',beeper:'',cut:false,barAuto:true,entries:[]};b.rows.push(target);}
   for(const row of b.rows){const sections=String(row.section).split(' / ').filter(x=>x&&x!==sec);if(row===target){if(!sections.includes(sec))sections.push(sec);row.section=sections.join(' / ');row.cut=false;}else{row.section=sections.join(' / ');if(!sections.length)row.cut=true;}}
+  if(cmd.beeper!==undefined){const value=String(cmd.beeper||'');if(value&&(!/^\d+$/.test(value)||+value<1||+value>20))fail('Beeper must be 1–20.');if(value&&b.rows.some(r=>r.id!==target.id&&r.beeper===value))fail('Beeper '+value+' is assigned to another employee.');target.beeper=value;}
+  if(cmd.workShift!==undefined){if(!['AM','PM','Double','Long Shift'].includes(cmd.workShift))fail('Choose AM, PM, Double Shift or Long Shift.');target.workShift=cmd.workShift;}
+  if(cmd.longStart!==undefined){if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(cmd.longStart))fail('Choose a valid Long Shift start time.');target.longStart=cmd.longStart;}
+  if(cmd.lastCut!==undefined)target.lastCut=!!cmd.lastCut;
   b.formation=cmd.formation;for(const id of list(form[sec])){if(!s.tables[id])fail('Unknown table '+id);b.assignments[id]=target.id;}break;}
  case 'FORMATION':{
   const form=config.formations[cmd.formation];if(!form)fail('Choose a formation.');
@@ -74,5 +86,5 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  }
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];return validate(s);
 }
-return {placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
+return {cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
 });
