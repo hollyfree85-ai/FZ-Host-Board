@@ -57,3 +57,7 @@ Edit Table Map moves tables between sections within an existing formation, or re
 
 ## v1.2.9 — CUT visibility
 CUT employees have no Board row or row controls. UNCUT restores the same saved rotation. Active party links remain available on Floor. All 62 tests pass, including two-device CUT and UNCUT propagation.
+
+
+## v1.2.10 — Board section order
+Visible Board rows follow ascending numeric section order, beginning at S1 when present, with BAR last. Combined sections sort by their smallest section. Sorting does not rewrite server rows, rotation entries or next-server selection. All 63 tests pass.
