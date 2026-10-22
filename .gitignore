@@ -1,7 +1,0 @@
-node_modules/
-.env*
-*.pem
-*service-account*.json
-*credentials*.json
-test-results/
-.openai/
