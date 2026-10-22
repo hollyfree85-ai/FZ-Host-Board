@@ -53,3 +53,7 @@ Manager and Owner can open More → Manage Server List to add or delete roster n
 
 ## v1.2.8 — Formation changes
 Edit Table Map moves tables between sections within an existing formation, or removes membership with UNASSIGNED. Edit Formation selects another formation and reassigns servers while retaining their row identity, rotation entries, skips, beepers, seated parties, secondary tables and Undo. Omitted servers remain CUT with retained entries. Source checks and all 61 tests pass, including three-party/four-party migration and the actual editor flow.
+
+
+## v1.2.9 — CUT visibility
+CUT employees have no Board row or row controls. UNCUT restores the same saved rotation. Active party links remain available on Floor. All 62 tests pass, including two-device CUT and UNCUT propagation.
