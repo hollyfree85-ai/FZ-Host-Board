@@ -95,3 +95,11 @@ nav button.active,button[data-pane].active{background:linear-gradient(145deg,#57
 #sectionLabels .section-server,#sectionOverflow .section-server{background:#303238!important;color:#fff!important;border-color:#737780!important}
 #sectionLabels .section-number,#sectionOverflow .section-number{background:#4b432f!important;color:#fff3d5!important;border-color:#b7a06a!important}
 #sectionOverflow{background:#111214!important}.section-empty{color:#d8c69d!important}
+
+/* White canvas, preserving white/red/blue operational table states. */
+html{color-scheme:light}body,#app,main,.pane,#board,#more,#floor,.map{background:#fff!important;background-image:none!important;color:#202731!important}
+.floor-shortcuts,.floor-formation{background:#fff!important;color:#3e4651!important}
+.map .table.ready{border-color:#77818d!important;box-shadow:0 2px 4px #17202b26!important}
+.map .table.ready.reserved{border-color:#3479c5!important}
+.map .zone{background:#eef0f3!important;color:#56616f!important;border-color:#b5bdc7!important}.map .door{color:#805c22!important}
+#sectionOverflow{background:#fff!important}.section-empty{color:#414c5b!important}
