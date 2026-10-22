@@ -67,3 +67,6 @@ Restore a white canvas while retaining white ready tables with clear outlines, r
 
 ### 1.2.20
 Match classic Quick Board references: navy Board/More, gold next row, blue navigation, white Floor with dark table outlines. Every large-party rotation slot repeats its table number in red and opens the same party. Manual and BAR auto skips remain amber and retain their existing rotation rules.
+
+### 1.2.21
+Move/Change now asks for a destination table and previews the old table becoming READY. Joining tables is handled separately by Edit Secondary. Same-server moves preserve party identity and rotation position.
