@@ -26,7 +26,7 @@ Firebase uses the existing project, under `juicyTableLive/JUICY-HUNTSVILLE/hostB
 
 Node 22+: `npm install`, `npm run check`, `npm test`. Publish `dist` as static files. The included GitHub Pages workflow runs checks and publishes on pushes to `main`; GitHub Pages must be available for the repository. The daily reset workflow requires GitHub Actions enabled.
 
-Forty-eight automated core and DOM tests cover party links, secondary deletion, Undo, concurrent clients, acknowledgement, day boundaries, formation, BAR auto skips and operational controls. Real-device network latency and microphone/camera calls still require testing on the restaurant's tablets. Calls use STUN; networks requiring TURN need `rtcIceServers` configured. No one-second network guarantee has been verified.
+Fifty-three automated core and DOM tests cover party links, secondary deletion, Undo, concurrent clients, acknowledgement, day boundaries, formation, BAR auto skips and operational controls. Real-device network latency and microphone/camera calls still require testing on the restaurant's tablets. Calls use STUN; networks requiring TURN need `rtcIceServers` configured. No one-second network guarantee has been verified.
 
 Firebase compatibility SDK 10.14.1 is vendored for consistent loading. Firebase SDK is Apache-2.0 licensed; see LICENSES/Firebase.txt.
 
@@ -35,3 +35,9 @@ Firebase compatibility SDK 10.14.1 is vendored for consistent loading. Firebase 
 The previous Quick Board layout is restored: role entry, floating shift and logout, bottom Board/Floor/More tabs, Next in Rotation, 15-column rotation cells, light Floor map, table action dialogs and a three-step Seat wizard. Backend transaction and realtime transport code are unchanged. Rotation cells expand beyond three rows when needed to keep existing entries visible.
 
 Front Host can remove an incorrect seated party without manager sign-in and restore it with Undo. Reservation shortcuts appear on Board and Floor; upcoming reservations are shown by default. PM BAR rows have a visible Auto Skip ON/OFF control; ON inserts one skip after each two real party entries.
+
+## Floor assignment and reminder update (1.2.0)
+
+Floor labels show table plus assigned section, with the legacy formation-specific section markers, server names and yellow beeper badges. Board MIN/MAX guides track active rotation slots, including skips and large-party continuation cells. New roster names can be added in Formation without losing the current selections, or through More → Add New Server.
+
+Reservations show upcoming dates by default. In-app reminders check every 30 seconds during the two-hour pre-arrival window, using America/Chicago time and one alert per device/reservation schedule. System notifications require the user to enable permission and keep the app running; this version does not implement background Web Push. Reminder content is not written into the hot Board object.

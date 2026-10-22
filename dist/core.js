@@ -4,6 +4,8 @@ const copy=x=>JSON.parse(JSON.stringify(x)),list=x=>Array.isArray(x)?x:Object.va
 const canonical=s=>String(s||'').trim().replace(/^AJ$/i,'A.J.');
 function uid(){const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const h=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
 function dayAt(at=Date.now()){const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date(at)).map(x=>[x.type,x.value]));const d=new Date(p.year+'-'+p.month+'-'+p.day+'T12:00:00Z');if(+p.hour<4)d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10);}
+function reservationTime(date,time){if(!/^\d{4}-\d{2}-\d{2}$/.test(date||'')||!/^\d{2}:\d{2}$/.test(time||''))return NaN;const target=Date.parse(date+'T'+time+':00Z');if(!Number.isFinite(target))return NaN;let instant=target;const fmt=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});for(let i=0;i<3;i++){const x=Object.fromEntries(fmt.formatToParts(instant).map(p=>[p.type,p.value]));const local=Date.parse(x.year+'-'+x.month+'-'+x.day+'T'+x.hour+':'+x.minute+':00Z');instant+=target-local;}return instant;}
+function reservationDue(r,now){if(/cancel|complete|no.?show/i.test(r.status||''))return false;const at=reservationTime(r.date,r.time);return Number.isFinite(at)&&now>=at-7200000&&now<at;}
 function emptyShift(){return {formation:'',rows:[],assignments:{}};}
 function initial(config,at=Date.now()){return {schema:1,day:dayAt(at),revision:0,updatedAt:at,shifts:{AM:emptyShift(),PM:emptyShift()},tables:Object.fromEntries(config.tables.map(t=>[t.id,{status:'ready'}])),parties:{},undo:{},receipts:{}};}
 function normalize(raw,config){const s=copy(raw||initial(config));s.shifts=s.shifts||{};for(const sh of ['AM','PM']){const b=s.shifts[sh]||(s.shifts[sh]=emptyShift());b.rows=list(b.rows);b.assignments=b.assignments||{};b.rows.forEach(r=>{r.entries=list(r.entries);r.barAuto=r.barAuto!==false;});}s.tables=s.tables||{};for(const t of config.tables)s.tables[t.id]=s.tables[t.id]||{status:'ready'};s.parties=s.parties||{};s.undo=s.undo||{};s.receipts=s.receipts||{};return s;}
@@ -51,5 +53,5 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  }
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];return validate(s);
 }
-return {copy,list,canonical,uid,dayAt,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
+return {copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
 });
