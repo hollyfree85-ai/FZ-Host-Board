@@ -6,7 +6,7 @@ const formationLabel=k=>config?.formationNames?.[k]||k;
 const manager=()=>managerAuthorized&&['Manager','Owner'].includes(role),shiftBoard=()=>state?.shifts[selectedShift],party=()=>state&&C.partyFor(state,selected),currentRow=p=>state?.shifts[p?.shift||selectedShift]?.rows.find(r=>r.id===p?.rowId);
 function toast(message){$('toast').textContent=message;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',6500);}
 function notice(text,kind=''){$('notice').textContent=text;$('notice').className=kind;}
-function openDialog(title,html){if($('modal').open)$('modal').close();$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modal').showModal();}
+function openDialog(title,html){if($('modal').open)$('modal').close();$('modal').classList.toggle('reservations-dialog',title==='Reservations');$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modal').showModal();}
 function closeDialog(){$('modal').close();$('seatWizard').close();}
 function requireManager(){if(manager())return true;toast('Manager / Owner authorization is required. Choose your role at the top.');return false;}
 function pane(name){closeTable();if(name==='board')requestAnimationFrame(positionFrontiers);if(name==='floor')requestAnimationFrame(fitFloor);document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('active',p.id===name));document.querySelectorAll('[data-pane]').forEach(b=>b.classList.toggle('active',b.dataset.pane===name));}
