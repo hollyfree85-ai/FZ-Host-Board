@@ -128,3 +128,5 @@ nav button.active,button[data-pane].active{background:linear-gradient(#2d83e9,#1
 .beeper-chip,#sectionLabels .section-beeper,#sectionOverflow .section-beeper{background:#ffcf32!important;color:#172131!important;border-color:#9a6f0e!important}
 .row-meta .section-bubble{background:#143b5d!important;color:#fff!important;border:2px solid #8ac7f5!important}
 #sectionOverflow{background:#f3f4f6!important}.section-empty{color:#384859!important}
+
+.row-clear{grid-column:1/-1;min-height:36px;font-weight:900;background:#8c2432!important;color:#fff!important;border-color:#d87985!important}

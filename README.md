@@ -73,3 +73,6 @@ Move/Change now asks for a destination table and previews the old table becoming
 
 ### 1.2.22
 Separate Manager/Owner Clear Board + Shift AM and PM actions. Each clears only its shift formation, rows, parties, linked Floor tables, skips and Undo while preserving the opposite shift, reservations and shared configuration.
+
+### 1.2.23
+Each Board server row has CLEAR to select an incorrect party entry. Active entries release all linked Floor tables; completed Board entries can be removed without changing a newer party on the same table. Undo restores active or Board-only entries appropriately. Includes separate AM/PM clear controls.
