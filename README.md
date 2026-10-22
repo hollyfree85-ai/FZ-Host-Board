@@ -65,3 +65,7 @@ Visible Board rows follow ascending numeric section order, beginning at S1 when 
 
 ## v1.2.11 — Local Floor labels
 Section, server and beeper callouts occupy free space near their tables, with leader lines. Placement excludes rotated table bounds, other labels and service labels. The right sidebar is removed. When small screens lack safe space, excess callouts use a compact bottom area. All 64 tests pass, including collision checks across all formations and five canvas sizes. Physical-device visual verification remains outstanding.
+
+
+## v1.2.12 — Staggered shift arrivals
+Formation & Servers saves each section separately beside its employee selector. No complete-team startup button is required. AM and PM retain separate formations, server rows and rotation entries; later arrivals append without resetting saved parties or skips. Unassigned sections remain empty. All 67 tests pass, including first arrival, late arrivals, stale-section protection and independent AM/PM formations.
