@@ -76,3 +76,6 @@ Separate Manager/Owner Clear Board + Shift AM and PM actions. Each clears only i
 
 ### 1.2.23
 Each Board server row has CLEAR to select an incorrect party entry. Active entries release all linked Floor tables; completed Board entries can be removed without changing a newer party on the same table. Undo restores active or Board-only entries appropriately. Includes separate AM/PM clear controls.
+
+### 1.2.24
+Next Server uses the same numeric section order as Board when rotation turns tie. Fewest turns remains the first priority; BAR follows numbered sections.
