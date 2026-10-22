@@ -47,33 +47,8 @@ Reservations show upcoming dates by default. In-app reminders check every 30 sec
 Floor uses the available viewport without fixed minimum map dimensions or scrolling. Assignment cards sit outside the table canvas, in a right-hand panel on wide screens and a bottom grid on portrait phones. Table text adapts to the measured canvas size; compact views use shorter labels while full table/section/server information remains accessible on tap. ResizeObserver, viewport and orientation changes update the layout. Automated DOM checks exercise six canvas sizes and ensure assignment cards are not children of the map. Physical-device visual testing remains outstanding because the browser inspection service is timing out.
 
 
-## v1.2.7 — Employee list
-Manager and Owner can open More → Manage Server List to add or delete roster names. Deleting a name preserves current shift rows and seated parties. Source checks and all 58 automated tests pass.
-
-
 ## v1.2.8 — Formation changes
-Edit Table Map moves tables between sections within an existing formation, or removes membership with UNASSIGNED. Edit Formation selects another formation and reassigns servers while retaining their row identity, rotation entries, skips, beepers, seated parties, secondary tables and Undo. Omitted servers remain CUT with retained entries. Source checks and all 61 tests pass, including three-party/four-party migration and the actual editor flow.
+Edit Table Map moves table membership between sections. Edit Formation changes formation and sections while preserving each server row, rotation, skips, beeper, active parties, secondary links and Undo. Unassigned servers remain CUT with retained entries. All 61 tests pass.
 
-
-## v1.2.9 — CUT visibility
-CUT employees have no Board row or row controls. UNCUT restores the same saved rotation. Active party links remain available on Floor. All 62 tests pass, including two-device CUT and UNCUT propagation.
-
-
-## v1.2.10 — Board section order
-Visible Board rows follow ascending numeric section order, beginning at S1 when present, with BAR last. Combined sections sort by their smallest section. Sorting does not rewrite server rows, rotation entries or next-server selection. All 63 tests pass.
-
-
-## v1.2.11 — Local Floor labels
-Section, server and beeper callouts occupy free space near their tables, with leader lines. Placement excludes rotated table bounds, other labels and service labels. The right sidebar is removed. When small screens lack safe space, excess callouts use a compact bottom area. All 64 tests pass, including collision checks across all formations and five canvas sizes. Physical-device visual verification remains outstanding.
-
-
-## v1.2.12 — Staggered shift arrivals
-Formation & Servers saves each section separately beside its employee selector. No complete-team startup button is required. AM and PM retain separate formations, server rows and rotation entries; later arrivals append without resetting saved parties or skips. Unassigned sections remain empty. All 67 tests pass, including first arrival, late arrivals, stale-section protection and independent AM/PM formations.
-
-
-## v1.2.13 — Dark theme and shift controls
-Darker Board/Floor surfaces and larger bold employee, section and beeper labels. Formation & Servers saves beeper, AM/PM/Double/Long shift, Long start time and extra PM last-cut selection with each section assignment. Cut guidance follows Chicago time; BAR and PM Section 1 remain protected last-cut. Actual CUT requires manager confirmation. All 70 tests pass, including atomic beeper uniqueness and weekday/Long/PM cut rules. Physical-device visual verification remains outstanding.
-
-
-## v1.2.14 — Navy 5D and nine-server Floor
-Deep navy layered surfaces with subtle bevels and shadows. Floor identity fields have separate blue name, teal section and muted-gold beeper panels. Dense formations use compact callouts; any labels without safe map space remain in an adaptive bottom grid. All ten labels in the 9 SERVER plus BAR formation are retained at three tested tablet/desktop canvas sizes. All 71 automated tests pass; physical-device visual verification remains outstanding.
+### 1.2.15
+Floor identity cards adapt to available space beside their own sections, including five and nine servers, instead of collecting below the map.

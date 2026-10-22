@@ -31,10 +31,16 @@ function cutAdvice(state,shift,row,now=Date.now()){
  const [h,m]=time.split(':').map(Number),due=minute>=h*100+m;return {time,due,protectedLast,label:(due?'CUT DUE · ':'CUT ')+(h>12?h-12:h)+':'+String(m).padStart(2,'0')+' PM · '+reason};
 }
 function placeSectionLabels(width,height,tables,groups,extras=[]){
- const gap=4,dense=groups.length>=8,cardWidth=width>=1000?(dense?184:214):width>=600?(dense?158:180):132,cardHeight=width>=600?(dense?70:82):68;
+ const gap=3;
+ let result=[];
+ for(const scale of [1,.9,.8,.7,.6,.5,.4]){
+ const cardWidth=(width>=1000?180:width>=600?156:110)*scale,cardHeight=(width>=600?62:50)*scale;
  const obstacles=tables.map(t=>{const angle=(t.r||0)*Math.PI/180,w=width*t.w/100,h=height*Math.max(5,t.h)/100,rw=Math.abs(w*Math.cos(angle))+Math.abs(h*Math.sin(angle)),rh=Math.abs(w*Math.sin(angle))+Math.abs(h*Math.cos(angle));return {x:width*t.x/100-rw/2,y:height*Math.min(t.y,94)/100-rh/2,w:rw,h:rh};}).concat(extras);
  const overlap=(a,b)=>a.x<b.x+b.w+gap&&a.x+a.w+gap>b.x&&a.y<b.y+b.h+gap&&a.y+a.h+gap>b.y;
- return groups.map(group=>{const own=tables.filter(t=>group.tables.includes(t.id));if(!own.length)return null;const anchor={x:own.reduce((n,t)=>n+t.x,0)/own.length*width/100,y:own.reduce((n,t)=>n+Math.min(t.y,94),0)/own.length*height/100};const xs=new Set([gap,width-cardWidth-gap,Math.max(gap,Math.min(width-cardWidth-gap,anchor.x-cardWidth/2))]),ys=new Set([gap,height-cardHeight-gap,Math.max(gap,Math.min(height-cardHeight-gap,anchor.y-cardHeight/2))]);for(const o of obstacles){xs.add(o.x-cardWidth-gap);xs.add(o.x+o.w+gap);ys.add(o.y-cardHeight-gap);ys.add(o.y+o.h+gap);}let best=null,score=Infinity;for(const x of xs){if(x<gap||x+cardWidth>width-gap)continue;for(const y of ys){if(y<gap||y+cardHeight>height-gap)continue;const d=(x+cardWidth/2-anchor.x)**2+(y+cardHeight/2-anchor.y)**2;if(d>=score)continue;const rect={x,y,w:cardWidth,h:cardHeight};if(obstacles.some(o=>overlap(rect,o)))continue;best={...rect,anchor};score=d;}}if(best)obstacles.push(best);return best;});
+ const attempt=groups.map(group=>{const own=tables.filter(t=>group.tables.includes(t.id));if(!own.length)return null;const anchor={x:own.reduce((n,t)=>n+t.x,0)/own.length*width/100,y:own.reduce((n,t)=>n+Math.min(t.y,94),0)/own.length*height/100};const xs=new Set([gap,width-cardWidth-gap,Math.max(gap,Math.min(width-cardWidth-gap,anchor.x-cardWidth/2))]),ys=new Set([gap,height-cardHeight-gap,Math.max(gap,Math.min(height-cardHeight-gap,anchor.y-cardHeight/2))]);for(const o of obstacles){xs.add(o.x-cardWidth-gap);xs.add(o.x+o.w+gap);ys.add(o.y-cardHeight-gap);ys.add(o.y+o.h+gap);}let best=null,score=Infinity;for(const x of xs){if(x<gap||x+cardWidth>width-gap)continue;for(const y of ys){if(y<gap||y+cardHeight>height-gap)continue;const d=(x+cardWidth/2-anchor.x)**2+(y+cardHeight/2-anchor.y)**2;if(d>=score||Math.hypot((x+cardWidth/2-anchor.x)/width,(y+cardHeight/2-anchor.y)/height)>.3)continue;const rect={x,y,w:cardWidth,h:cardHeight};if(obstacles.some(o=>overlap(rect,o)))continue;best={...rect,anchor};score=d;}}if(best)obstacles.push(best);return best;});
+ result=attempt;if(attempt.every(Boolean))break;
+ }
+ return result;
 }
 function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.id||!cmd.type||!Number.isFinite(cmd.at))fail('Invalid command.');if(s.receipts[cmd.id])return s;if(now-cmd.at>120000&&cmd.type!=='DAILY_RESET')fail('This operation is too old. Reopen the table.','EXPIRED');
  if(cmd.type==='DAILY_RESET'){const day=dayAt(cmd.at);if(s.day>=day)return s;s=initial(config,cmd.at);s.lastResetAt=cmd.at;}
