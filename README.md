@@ -73,3 +73,7 @@ Formation & Servers saves each section separately beside its employee selector. 
 
 ## v1.2.13 — Dark theme and shift controls
 Darker Board/Floor surfaces and larger bold employee, section and beeper labels. Formation & Servers saves beeper, AM/PM/Double/Long shift, Long start time and extra PM last-cut selection with each section assignment. Cut guidance follows Chicago time; BAR and PM Section 1 remain protected last-cut. Actual CUT requires manager confirmation. All 70 tests pass, including atomic beeper uniqueness and weekday/Long/PM cut rules. Physical-device visual verification remains outstanding.
+
+
+## v1.2.14 — Navy 5D and nine-server Floor
+Deep navy layered surfaces with subtle bevels and shadows. Floor identity fields have separate blue name, teal section and muted-gold beeper panels. Dense formations use compact callouts; any labels without safe map space remain in an adaptive bottom grid. All ten labels in the 9 SERVER plus BAR formation are retained at three tested tablet/desktop canvas sizes. All 71 automated tests pass; physical-device visual verification remains outstanding.
