@@ -26,7 +26,7 @@ Firebase uses the existing project, under `juicyTableLive/JUICY-HUNTSVILLE/hostB
 
 Node 22+: `npm install`, `npm run check`, `npm test`. Publish `dist` as static files. The included GitHub Pages workflow runs checks and publishes on pushes to `main`; GitHub Pages must be available for the repository. The daily reset workflow requires GitHub Actions enabled.
 
-Fifty-five automated core and DOM tests cover party links, secondary deletion, Undo, concurrent clients, acknowledgement, day boundaries, formation, BAR auto skips and operational controls. Real-device network latency and microphone/camera calls still require testing on the restaurant's tablets. Calls use STUN; networks requiring TURN need `rtcIceServers` configured. No one-second network guarantee has been verified.
+Fifty-three automated core and DOM tests cover party links, secondary deletion, Undo, concurrent clients, acknowledgement, day boundaries, formation, BAR auto skips and operational controls. Real-device network latency and microphone/camera calls still require testing on the restaurant's tablets. Calls use STUN; networks requiring TURN need `rtcIceServers` configured. No one-second network guarantee has been verified.
 
 Firebase compatibility SDK 10.14.1 is vendored for consistent loading. Firebase SDK is Apache-2.0 licensed; see LICENSES/Firebase.txt.
 
@@ -38,10 +38,6 @@ Front Host can remove an incorrect seated party without manager sign-in and rest
 
 ## Floor assignment and reminder update (1.2.0)
 
-Floor labels show table plus assigned section, with section numbers, server names and yellow beeper badges. Board MIN/MAX guides track active rotation slots, including skips and large-party continuation cells. New roster names can be added in Formation without losing the current selections, or through More → Add New Server.
+Floor labels show table plus assigned section, with the legacy formation-specific section markers, server names and yellow beeper badges. Board MIN/MAX guides track active rotation slots, including skips and large-party continuation cells. New roster names can be added in Formation without losing the current selections, or through More → Add New Server.
 
 Reservations show upcoming dates by default. In-app reminders check every 30 seconds during the two-hour pre-arrival window, using America/Chicago time and one alert per device/reservation schedule. System notifications require the user to enable permission and keep the app running; this version does not implement background Web Push. Reminder content is not written into the hot Board object.
-
-## Fit Floor update (1.2.1)
-
-Floor uses the available viewport without fixed minimum map dimensions or scrolling. Assignment cards sit outside the table canvas, in a right-hand panel on wide screens and a bottom grid on portrait phones. Table text adapts to the measured canvas size; compact views use shorter labels while full table/section/server information remains accessible on tap. ResizeObserver, viewport and orientation changes update the layout. Automated DOM checks exercise six canvas sizes and ensure assignment cards are not children of the map. Physical-device visual testing remains outstanding because the browser inspection service is timing out.
