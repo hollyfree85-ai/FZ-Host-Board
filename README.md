@@ -49,3 +49,7 @@ Floor uses the available viewport without fixed minimum map dimensions or scroll
 
 ## v1.2.7 — Employee list
 Manager and Owner can open More → Manage Server List to add or delete roster names. Deleting a name preserves current shift rows and seated parties. Source checks and all 58 automated tests pass.
+
+
+## v1.2.8 — Formation changes
+Edit Table Map moves tables between sections within an existing formation, or removes membership with UNASSIGNED. Edit Formation selects another formation and reassigns servers while retaining their row identity, rotation entries, skips, beepers, seated parties, secondary tables and Undo. Omitted servers remain CUT with retained entries. Source checks and all 61 tests pass, including three-party/four-party migration and the actual editor flow.
