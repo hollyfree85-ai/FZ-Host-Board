@@ -64,3 +64,6 @@ Black and champagne gold canvas; ready tables white, occupied tables red, assign
 
 ### 1.2.19
 Restore a white canvas while retaining white ready tables with clear outlines, red occupied tables and blue assigned reservations.
+
+### 1.2.20
+Match classic Quick Board references: navy Board/More, gold next row, blue navigation, white Floor with dark table outlines. Every large-party rotation slot repeats its table number in red and opens the same party. Manual and BAR auto skips remain amber and retain their existing rotation rules.
