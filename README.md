@@ -45,3 +45,7 @@ Reservations show upcoming dates by default. In-app reminders check every 30 sec
 ## Fit Floor update (1.2.1)
 
 Floor uses the available viewport without fixed minimum map dimensions or scrolling. Assignment cards sit outside the table canvas, in a right-hand panel on wide screens and a bottom grid on portrait phones. Table text adapts to the measured canvas size; compact views use shorter labels while full table/section/server information remains accessible on tap. ResizeObserver, viewport and orientation changes update the layout. Automated DOM checks exercise six canvas sizes and ensure assignment cards are not children of the map. Physical-device visual testing remains outstanding because the browser inspection service is timing out.
+
+
+## v1.2.7 — Employee list
+Manager and Owner can open More → Manage Server List to add or delete roster names. Deleting a name preserves current shift rows and seated parties. Source checks and all 58 automated tests pass.
