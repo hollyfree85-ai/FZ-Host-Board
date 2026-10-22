@@ -79,3 +79,6 @@ Each Board server row has CLEAR to select an incorrect party entry. Active entri
 
 ### 1.2.24
 Next Server uses the same numeric section order as Board when rotation turns tie. Fewest turns remains the first priority; BAR follows numbered sections.
+
+### 1.2.25
+READY closes the Floor status panel after database confirmation without opening a seating dialog. Rotation keeps the same next server when another server is seated out of turn.
