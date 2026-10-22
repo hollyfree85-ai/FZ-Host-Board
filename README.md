@@ -55,3 +55,6 @@ Floor identity cards adapt to available space beside their own sections, includi
 
 ### 1.2.16
 White Board, Floor and More backgrounds with blue operational cards and ready table boxes. Occupied and cleaning table status colors stay distinct.
+
+### 1.2.17
+Refined white-and-sapphire finish with crisp blue cards, subtle cyan accents and dimensional borders.
