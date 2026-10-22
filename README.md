@@ -70,3 +70,6 @@ Match classic Quick Board references: navy Board/More, gold next row, blue navig
 
 ### 1.2.21
 Move/Change now asks for a destination table and previews the old table becoming READY. Joining tables is handled separately by Edit Secondary. Same-server moves preserve party identity and rotation position.
+
+### 1.2.22
+Separate Manager/Owner Clear Board + Shift AM and PM actions. Each clears only its shift formation, rows, parties, linked Floor tables, skips and Undo while preserving the opposite shift, reservations and shared configuration.
