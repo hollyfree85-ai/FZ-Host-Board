@@ -38,6 +38,13 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
   const form=config.formations[cmd.formation];if(!form)fail('Choose a formation.');b.rows=[];b.assignments={};b.formation=cmd.formation;
   const grouped=new Map();for(const sec of Object.keys(form).sort((a,z)=>a==='BAR'?1:z==='BAR'?-1:a.localeCompare(z,undefined,{numeric:true}))){const server=canonical(cmd.servers?.[sec]);if(!server)fail('Assign a server to Section '+sec);let r=grouped.get(server);if(!r){r={id:'row_'+cmd.id+'_'+grouped.size,server,section:sec,beeper:'',cut:false,barAuto:true,entries:[]};grouped.set(server,r);b.rows.push(r);}else r.section+=' / '+sec;for(const table of form[sec]){if(b.assignments[table])fail('Table '+table+' occurs in more than one section.');b.assignments[table]=r.id;}}
   break;}
+ case 'SECTION_SERVER':{
+  const form=config.formations[cmd.formation],sec=String(cmd.section||''),server=canonical(cmd.server);if(!form||!Object.prototype.hasOwnProperty.call(form,sec))fail('Choose a formation section.');if(!server)fail('Choose an employee who has arrived.');
+  if(b.formation&&b.formation!==cmd.formation)fail('Use Edit Formation to change the current formation.');
+  const current=b.rows.find(r=>!r.cut&&String(r.section).split(' / ').includes(sec));if(cmd.expectedOwner!==undefined&&(current?.id||'')!==cmd.expectedOwner)fail('This section changed on another device. Reopen Formation & Servers.','CONFLICT');
+  let target=b.rows.find(r=>!r.cut&&canonical(r.server)===server)||b.rows.find(r=>canonical(r.server)===server);if(!target){target={id:'row_'+cmd.id,server,section:'',beeper:'',cut:false,barAuto:true,entries:[]};b.rows.push(target);}
+  for(const row of b.rows){const sections=String(row.section).split(' / ').filter(x=>x&&x!==sec);if(row===target){if(!sections.includes(sec))sections.push(sec);row.section=sections.join(' / ');row.cut=false;}else{row.section=sections.join(' / ');if(!sections.length)row.cut=true;}}
+  b.formation=cmd.formation;for(const id of list(form[sec])){if(!s.tables[id])fail('Unknown table '+id);b.assignments[id]=target.id;}break;}
  case 'FORMATION':{
   const form=config.formations[cmd.formation];if(!form)fail('Choose a formation.');
   if(cmd.expectedRows&&JSON.stringify(b.rows.map(r=>[r.id,r.server,r.section,r.cut]))!==JSON.stringify(cmd.expectedRows))fail('Formation changed on another device. Reopen Edit Formation.','CONFLICT');
