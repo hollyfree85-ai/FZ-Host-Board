@@ -1,7 +1,7 @@
 (function(root){'use strict';
 class HostConnection{
  constructor(options){this.options=options;this.config=null;this.state=null;this.connected=false;this.offset=0;this.busy=false;this.onState=()=>{};this.onConfig=()=>{};this.onStatus=()=>{};this.pendingKey='fz_host_next_pending_v1';this.unsub=[];this.app=root.firebase.apps.find(a=>a.name==='fz-host-next')||root.firebase.initializeApp({databaseURL:options.databaseURL},'fz-host-next');this.db=this.app.database();this.ref=this.db.ref(options.path);this.liveRef=this.ref.child('live');}
- readPending(){if(this.pendingMemory)return this.pendingMemory;try{return JSON.parse(localStorage.getItem(this.pendingKey)||'null');}catch(_){return null;}}
+ readPending(){let cmd=this.pendingMemory;if(!cmd)try{cmd=JSON.parse(localStorage.getItem(this.pendingKey)||'null');}catch(_){}if(cmd&&cmd.type!=='DAILY_RESET'&&Number.isFinite(cmd.at)&&this.now()-cmd.at>120000){this.clearPending();return null;}return cmd||null;}
  savePending(cmd){this.pendingMemory=cmd;try{localStorage.setItem(this.pendingKey,JSON.stringify(cmd));}catch(_){} }
  clearPending(){this.pendingMemory=null;try{localStorage.removeItem(this.pendingKey);}catch(_){} }
  now(){return Date.now()+this.offset;}

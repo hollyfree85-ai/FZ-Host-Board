@@ -138,3 +138,8 @@ nav button.active,button[data-pane].active{background:linear-gradient(#2d83e9,#1
 #sectionLabels .section-marker{grid-template-columns:25% minmax(0,1fr)!important;grid-template-rows:minmax(0,1fr) 30%!important;gap:2px 4px!important;padding:3px!important}
 #sectionLabels .section-server{display:flex!important;align-items:center;justify-content:center;white-space:normal!important;overflow-wrap:anywhere!important;line-height:1.08!important;max-height:none!important;height:100%!important;box-sizing:border-box!important}
 #sectionLabels .section-beeper{display:flex!important;align-items:center;justify-content:center;line-height:1!important}
+
+/* Keep two name lines inside the card and prevent the beeper from extending outside. */
+#sectionLabels .section-server{min-width:0!important;max-width:100%!important;overflow-wrap:normal!important;word-break:normal!important;text-overflow:clip!important;font-weight:800!important}
+#sectionLabels .section-beeper{min-width:0!important;max-width:100%!important;box-sizing:border-box!important;border-width:1px!important;overflow:hidden!important}
+#notice.error{font-size:16px!important;font-weight:800!important;white-space:normal!important;min-height:38px!important;height:auto!important;padding:8px 12px!important}
