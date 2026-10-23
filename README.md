@@ -88,3 +88,6 @@ BAR automatic SKIP cells use black backgrounds and white text, distinct from amb
 
 ### 1.2.27
 Larger Floor identity cards with two-line names and independent section sizing. Reuse unchanged identity DOM and cached label positions across updates and resize events to reduce repeated layout work on tablets.
+
+### 1.2.28
+Skip duplicate confirmed-state adoption and unchanged Board/Floor DOM rebuilds during save. Confirmation timing shows database wait, final UI time and transaction attempts for device-specific save diagnosis. Database acknowledgement remains required before success.
