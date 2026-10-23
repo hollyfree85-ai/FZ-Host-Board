@@ -85,3 +85,6 @@ READY closes the Floor status panel after database confirmation without opening 
 
 ### 1.2.26
 BAR automatic SKIP cells use black backgrounds and white text, distinct from amber manual skips.
+
+### 1.2.27
+Larger Floor identity cards with two-line names and independent section sizing. Reuse unchanged identity DOM and cached label positions across updates and resize events to reduce repeated layout work on tablets.
