@@ -153,3 +153,7 @@ nav button.active,button[data-pane].active{background:linear-gradient(#2d83e9,#1
 #floor #sectionLabels .section-beeper{grid-column:2!important;grid-row:2!important;width:100%!important;height:17px!important;max-width:100%!important;font-size:var(--staff-beeper,12px)!important;line-height:1!important;padding:0 2px!important;border:0!important;border-radius:4px!important;box-shadow:none!important;box-sizing:border-box!important}
 #floor #sectionOverflow{display:none!important}#floor #sectionLabels svg{display:none!important}
 @media(max-width:700px){#floor .floor-layout{grid-template-columns:minmax(0,1fr) 150px!important;gap:4px!important}#floor #sectionLabels .section-marker{grid-template-columns:30px minmax(0,1fr)!important;padding:2px!important;gap:1px 3px!important}#floor #sectionLabels .section-number{font-size:12px!important}}
+
+/* CLEAN status: clear yellow with dark readable text. */
+#floor .map .table.cleaning{background:#ffdf32!important;color:#172131!important;border-color:#967500!important}
+.dot.cleaning,.pill.cleaning{background:#ffdf32!important;color:#172131!important}
