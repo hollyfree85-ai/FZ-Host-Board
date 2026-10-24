@@ -161,3 +161,8 @@ nav button.active,button[data-pane].active{background:linear-gradient(#2d83e9,#1
 /* Larger section badges, keeping the approved name and beeper layout. */
 #floor #sectionLabels .section-number{font-size:clamp(20px,2vw,28px)!important;font-weight:900!important;min-width:42px!important;min-height:28px!important;height:28px!important;line-height:1!important;align-self:end!important;border-width:2px!important;z-index:2;transform:translateY(-2px)}
 #floor #sectionLabels .bar-marker .section-number{font-size:18px!important;min-width:52px!important}
+
+/* Brighter classic identities and larger beeper numbers. */
+#floor #sectionLabels .section-server{background:#456481!important;color:#fff!important;border:1px solid #7695b1!important;text-shadow:none!important;box-shadow:0 2px 4px #17334d22!important}
+#floor #sectionLabels .section-number{background:#247bd0!important;color:#fff!important;border-color:#145494!important;box-shadow:0 2px 4px #1d5b8b33!important}
+#floor #sectionLabels .section-beeper{font-size:clamp(18px,1.65vw,23px)!important;min-height:25px!important;height:25px!important;align-self:start!important;transform:translateY(1px);background:#ffda42!important;color:#172131!important;border-color:#af8616!important;text-shadow:none!important;overflow:visible!important}
