@@ -47,11 +47,16 @@ function placeSectionLabels(width,height,tables,groups,extras=[]){
  for(const scale of [1,.9,.8,.7,.6,.5,.4]){const cardWidth=(width>=1000?220:width>=600?190:132)*scale,cardHeight=(width>=600?82:68)*scale;const xs=new Set([gap,width-cardWidth-gap,Math.max(gap,Math.min(width-cardWidth-gap,anchor.x-cardWidth/2))]),ys=new Set([gap,height-cardHeight-gap,Math.max(gap,Math.min(height-cardHeight-gap,anchor.y-cardHeight/2))]);for(const o of obstacles){xs.add(o.x-cardWidth-gap);xs.add(o.x+o.w+gap);ys.add(o.y-cardHeight-gap);ys.add(o.y+o.h+gap);}let score=Infinity;for(const x of xs){if(x<gap||x+cardWidth>width-gap)continue;for(const y of ys){if(y<gap||y+cardHeight>height-gap)continue;const d=(x+cardWidth/2-anchor.x)**2+(y+cardHeight/2-anchor.y)**2;if(d>=score||Math.hypot((x+cardWidth/2-anchor.x)/width,(y+cardHeight/2-anchor.y)/height)>.3)continue;const rect={x,y,w:cardWidth,h:cardHeight};if(obstacles.some(o=>overlap(rect,o)))continue;best={...rect,anchor};score=d;}}if(best)break;}
  if(best)obstacles.push(best);result[index]=best;});return result;
 }
+function beeperRows(s){return Object.fromEntries(['AM','PM'].flatMap(shift=>list(s.shifts[shift]?.rows).filter(r=>r.beeper).map(r=>[shift+'_'+r.id,{day:s.day,shift,rowId:r.id,server:r.server,beeper:String(r.beeper),section:r.section}])));}
+function retainBeeperHistory(history,at){const first=new Date(dayAt(at)+'T12:00:00Z');first.setUTCDate(first.getUTCDate()-6);const cutoff=first.toISOString().slice(0,10);return Object.fromEntries(Object.entries(history||{}).filter(([,e])=>e.day>=cutoff&&e.day<=dayAt(at)));}
 function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.id||!cmd.type||!Number.isFinite(cmd.at))fail('Invalid command.');if(s.receipts[cmd.id])return s;if(now-cmd.at>120000&&cmd.type!=='DAILY_RESET')fail('This operation is too old. Reopen the table.','EXPIRED');
+ const oldBeepers=beeperRows(s),history=copy(s.beeperHistory||{}),historyStartedAt=s.beeperHistoryStartedAt||cmd.at;
+ if(!s.beeperHistoryStartedAt)for(const [key,value]of Object.entries(oldBeepers))history['initial_'+key]={...value,at:cmd.at,event:'OBSERVED',reason:'Logging started'};
  if(cmd.type==='DAILY_RESET'){const day=dayAt(cmd.at);if(s.day>=day)return s;s=initial(config,cmd.at);s.lastResetAt=cmd.at;}
  else{
  if(cmd.day!==s.day||dayAt(cmd.at)!==s.day)fail('The operational day changed. Reload before retrying.','DAY_CHANGED');const sh=cmd.shift||'PM';if(!s.shifts[sh])fail('Choose AM or PM.');const b=s.shifts[sh];
  switch(cmd.type){
+ case 'BEEPER_HISTORY_INIT':break;
  case 'SETUP':{
   if(Object.keys(s.parties).some(id=>s.parties[id].shift===sh)||b.rows.some(r=>r.entries.length))fail('This shift already has parties. Use Edit Formation or Breaking Section.');
   const form=config.formations[cmd.formation];if(!form)fail('Choose a formation.');b.rows=[];b.assignments={};b.formation=cmd.formation;
@@ -98,7 +103,9 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  default:fail('Unknown operation '+cmd.type);
  }
  }
+ const newBeepers=beeperRows(s);for(const key of new Set([...Object.keys(oldBeepers),...Object.keys(newBeepers)])){const old=oldBeepers[key],current=newBeepers[key];if(old&&current&&old.beeper===current.beeper&&old.server===current.server&&old.day===current.day)continue;if(old)history[cmd.id+'_removed_'+key]={...old,at:cmd.at,event:'REMOVED',reason:cmd.type};if(current)history[cmd.id+'_assigned_'+key]={...current,at:cmd.at,event:'ASSIGNED',reason:cmd.type};}
+ s.beeperHistory=retainBeeperHistory(history,now);s.beeperHistoryStartedAt=historyStartedAt;
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];return validate(s);
 }
-return {cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
+return {retainBeeperHistory,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
 });
