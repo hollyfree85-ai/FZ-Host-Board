@@ -1,0 +1,6 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),{batches}=require('../dist/table-alerts.js');
+const base=1000000;
+function state(){return {parties:{one:{id:'one',at:base,primary:'A1',secondary:[],shift:'PM',rowId:'a'},two:{id:'two',at:base+60000,primary:'L6',secondary:['F6'],shift:'PM',rowId:'b'}},shifts:{PM:{rows:[{id:'a',server:'Angela'},{id:'b',server:'AJ'}]}}};}
+test('Immediate beep names the assigned server; nearby tables share a three-minute service check',()=>{const s=state();let b=batches(s,base);assert.equal(b[0].kind,'beep');assert.equal(b[0].rows[0].server,'Angela');const seen={'beep:one':base,'beep:two':base};assert.equal(batches(s,base+239999,seen).length,0);b=batches(s,base+240000,seen);assert.equal(b[0].kind,'check');assert.equal(b[0].rows.length,2);assert.equal(b[0].rows[1].table,'L6 + F6');});
+test('Acknowledgements deduplicate and Ready/deleted parties cannot produce alerts',()=>{const s=state();delete s.parties.one;assert.equal(batches(s,base+120000)[0].rows.length,1);assert.equal(batches(s,base+120000,{'beep:two':base}).length,0);s.parties={};assert.deepEqual(batches(s,base+300000),[]);});
+test('Old parties do not flood a device after reopening',()=>assert.deepEqual(batches(state(),base+3600000),[]));
