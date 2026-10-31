@@ -57,6 +57,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  if(cmd.day!==s.day||dayAt(cmd.at)!==s.day)fail('The operational day changed. Reload before retrying.','DAY_CHANGED');const sh=cmd.shift||'PM';if(!s.shifts[sh])fail('Choose AM or PM.');const b=s.shifts[sh];
  switch(cmd.type){
  case 'BEEPER_HISTORY_INIT':break;
+ case 'FORMATION_SELECT':{if(!config.formations[cmd.formation])fail('Choose a formation.');if(b.formation&&b.formation!==cmd.formation)fail('Use Edit Formation to change the current formation.','CONFLICT');b.formation=cmd.formation;break;}
  case 'SETUP':{
   if(Object.keys(s.parties).some(id=>s.parties[id].shift===sh)||b.rows.some(r=>r.entries.length))fail('This shift already has parties. Use Edit Formation or Breaking Section.');
   const form=config.formations[cmd.formation];if(!form)fail('Choose a formation.');b.rows=[];b.assignments={};b.formation=cmd.formation;
