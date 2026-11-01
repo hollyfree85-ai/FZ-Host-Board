@@ -1,6 +1,6 @@
 {
   "name": "fz-host-board-next",
-  "version": "1.2.43",
+  "version": "1.2.44",
   "private": true,
   "description": "Realtime host Board and Floor with atomic party operations",
   "scripts": {
@@ -15,3 +15,4 @@
     "jsdom": "26.1.0"
   }
 }
+

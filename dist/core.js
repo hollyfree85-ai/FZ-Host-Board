@@ -56,6 +56,8 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  else{
  if(cmd.day!==s.day||dayAt(cmd.at)!==s.day)fail('The operational day changed. Reload before retrying.','DAY_CHANGED');const sh=cmd.shift||'PM';if(!s.shifts[sh])fail('Choose AM or PM.');const b=s.shifts[sh];
  switch(cmd.type){
+ case 'WAIT_SAVE':{const name=String(cmd.name||'').trim(),phone=String(cmd.phone||'').trim();if(!name||name.length>100)fail('Enter a guest name (maximum 100 characters).');if(!/^[+()0-9 .-]+$/.test(phone)||phone.replace(/\D/g,'').length<10||phone.replace(/\D/g,'').length>15)fail('Enter a valid phone number (10–15 digits).');s.waiting=s.waiting||{};if(Object.keys(s.waiting).length>=200)fail('Waiting list is full. Remove completed parties first.');s.waiting[cmd.id]={id:cmd.id,name,phone,at:cmd.at};break;}
+ case 'WAIT_REMOVE':{s.waiting=s.waiting||{};if(!s.waiting[cmd.waitId])fail('This guest was already removed.','CONFLICT');delete s.waiting[cmd.waitId];break;}
  case 'BEEPER_HISTORY_INIT':break;
  case 'FORMATION_SELECT':{if(!config.formations[cmd.formation])fail('Choose a formation.');if(b.formation&&b.formation!==cmd.formation)fail('Use Edit Formation to change the current formation.','CONFLICT');b.formation=cmd.formation;break;}
  case 'SETUP':{
@@ -111,3 +113,4 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
 }
 return {retainBeeperHistory,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
 });
+
