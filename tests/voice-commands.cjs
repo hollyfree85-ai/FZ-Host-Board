@@ -1,0 +1,2 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),{command}=require('../dist/voice-commands.js');
+test('Only exact Buka and Tutup words navigate, with case and punctuation normalized',()=>{assert.equal(command(' BUKA. '),'buka');assert.equal(command('Tutup!'),'tutup');for(const text of ['buka meja','jangan tutup','buka tutup','open','',null])assert.equal(command(text),null);});
