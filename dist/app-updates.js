@@ -1,0 +1,10 @@
+(function(root){'use strict';
+function newer(next,current){const parse=v=>/^\d+\.\d+\.\d+$/.test(v||'')?v.split('.').map(Number):null,a=parse(next),b=parse(current);if(!a||!b)return false;for(let i=0;i<3;i++){if(a[i]!==b[i])return a[i]>b[i];}return false;}
+class AppUpdates{
+ constructor(options,env=root){this.options=options;this.env=env;this.lastInteraction=env.Date.now();this.pending='';this.reloading=false;this.checking=false;this.registration=null;for(const event of ['pointerdown','keydown','input','change'])env.document.addEventListener(event,()=>{this.lastInteraction=env.Date.now();},{passive:true});env.document.addEventListener('visibilitychange',()=>{if(!env.document.hidden)void this.check();});env.addEventListener('online',()=>void this.check());env.navigator.serviceWorker?.addEventListener('controllerchange',()=>void this.check());}
+ async start(){await this.check();this.poll=this.env.setInterval(()=>void this.check(),60000);this.idle=this.env.setInterval(()=>this.apply(),3000);}
+ async check(){if(this.checking||this.reloading||this.env.document.hidden)return;this.checking=true;try{const sw=this.env.navigator.serviceWorker;if(sw){if(!this.registration)this.registration=await sw.register('./sw.js',{updateViaCache:'none'});await this.registration.update();}const response=await this.env.fetch('./app-config.json?update='+this.env.Date.now(),{cache:'no-store'});if(!response.ok)return;const config=await response.json();if(newer(config.version,this.options.version)){this.pending=config.version;this.options.onAvailable?.(this.pending);}}catch(_){}finally{this.checking=false;}this.apply();}
+ apply(){if(!this.pending||this.reloading||this.checking||this.env.document.hidden||this.env.Date.now()-this.lastInteraction<15000||this.registration?.installing||this.registration?.waiting||!this.options.isSafe())return;this.reloading=true;this.options.beforeReload?.();const url=new this.env.URL(this.env.location.href);url.searchParams.set('v',this.pending);this.env.location.replace(url.href);}
+}
+root.AppUpdates=AppUpdates;if(typeof module!=='undefined')module.exports={AppUpdates,newer};
+})(globalThis);
