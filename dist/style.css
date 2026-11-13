@@ -184,3 +184,28 @@ nav{grid-template-columns:repeat(4,minmax(0,1fr))}nav button{min-width:0;padding
 
 
 #voiceToggle{position:fixed;z-index:1100;top:10px;left:76px;max-width:calc(100vw - 250px);min-height:34px;padding:6px 10px;font-size:11px;background:#173d5e;color:white;border:1px solid #86adc9}#voiceToggle[aria-pressed=true]{background:#176640;border-color:#72d8a4}@media(max-width:600px){#voiceToggle{top:48px;left:12px;max-width:calc(100vw - 24px);font-size:10px}}
+
+/* Phones use touch-sized table tiles instead of shrinking the physical map. */
+@media (max-width:650px), (pointer:coarse) and (max-height:500px){
+ #floor.active{overflow:auto}
+ #floor .floor-layout{display:block!important;flex:none;overflow:visible}
+ #floor .map{display:grid;grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:8px;padding:8px;height:auto!important;overflow:visible}
+ #floor .map>.door,#floor .map>.zone{display:none}
+ #floor .map .table{position:static!important;width:100%!important;height:auto!important;min-height:54px!important;transform:none!important}
+ #floor .map .table strong{font-size:17px!important}
+ #floor .map .table small{font-size:12px!important}
+ #floor #sectionLabels{position:static!important;grid-column:1/-1;display:grid!important;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;width:auto!important;height:auto!important}
+ #floor #sectionLabels .section-marker{display:flex!important;flex-direction:column;align-items:center;position:static!important;transform:none!important;width:auto!important;height:auto!important;max-width:none!important;gap:3px;padding:6px}
+ #floor #sectionLabels .section-marker>*{position:static!important;transform:none!important;font-size:14px!important;white-space:normal!important;height:auto!important;max-width:100%!important}
+ #floor #sectionLabels .section-beeper{align-self:center!important;min-height:0!important}
+ #board .board-row{grid-template-columns:minmax(0,1fr)!important}
+ #board .row-meta,#board .turns,#board .row-actions{grid-column:1;grid-row:auto}
+ #board .turns{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
+ #board .turn.empty:not(.current){display:none}
+ #board .turn{min-height:44px}
+ #board .row-actions button,nav button,.floor-shortcuts button,.board-shortcuts button{min-height:44px;font-size:12px}
+ #board .row-meta strong{font-size:19px}
+ #board .next-card{grid-template-columns:minmax(0,1fr) auto}
+ .reservation-form-grid{grid-template-columns:minmax(0,1fr)}
+ .field{font-size:16px}
+}
