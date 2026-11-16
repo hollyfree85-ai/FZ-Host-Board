@@ -5,7 +5,9 @@ const capacities={};
 function singles(ids,min,max=min){for(const id of ids.split(' '))capacities[id]=Object.freeze({min,max});}
 singles('A1 A2 A3 A4 B1 L1 L2 L3 L4 R1 R2 R3 R4 H1 C1 D1 D2 D3 F1 F2 F3 F4 F5 F6 E1',4);
 singles('B2 B3',4,6);singles('L5 L6 R5 R6 R7',6,7);singles('H2 H3 H4 C2 C3 C4',6);singles('M1 M2 E2 E3 E4 E5',4,5);
+for(let n=1;n<=12;n++)capacities['Bar '+n]=Object.freeze({min:1,max:1});
 Object.freeze(capacities);
+function capacityFor(id){const text=String(id||'').trim(),bar=text.match(/^bar\s*(\d+)$/i);return capacities[bar?'Bar '+Number(bar[1]):text.toUpperCase()]||null;}
 // Only explicitly approved combinations. C2+C3 uses the lower supplied limit (12).
 // Full C-row and D combinations await confirmed capacities; do not generate them.
 const groups=[
@@ -57,7 +59,7 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  const available=id=>knownTables.has(id)&&formedTables.has(id)&&state.tables?.[id]?.status==='ready'&&!state.tables[id].partyId&&!held.has(id);
  const joined=prefix=>Object.values(state.parties||{}).some(p=>C.members(p).filter(id=>id.startsWith(prefix)).length>1);
  const joinedC=joined('C'),joinedD=joined('D'),loads=new Map(rows.map(r=>[r.id,workload(state,shift,r,now)]));
- const options=[...Object.entries(capacities).map(([id,c])=>({tables:[id],...c})),...groups];
+ const options=[...C.list(config.tables).flatMap(t=>{const capacity=capacityFor(t.id);return capacity?[{tables:[t.id],...capacity}]:[];}),...groups];
  for(const option of options){
   const ids=option.tables;if(option.max<people||!ids.every(available))continue;
   if(ids.filter(id=>/^C/.test(id)).length>1&&joinedD||ids.filter(id=>/^D/.test(id)).length>1&&joinedC)continue;
@@ -75,5 +77,5 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  if(!result.candidates.length)result.reason='No suitable READY tables in one section for this party.';
  return result;
 }
-return {capacities,groups,recommend,sectionFor};
+return {capacities,capacityFor,groups,recommend,sectionFor};
 });

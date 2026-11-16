@@ -129,3 +129,9 @@ test('Party suggestions refresh on reservation holds and hide cross-section comb
  await p.w.FZHostApp.connection.ref.child('reservations').child('hold').set({name:'Fixture Guest',people:10,date:p.w.FZHostApp.state.day,time:'19:00',table:'B2'});await waitFor(()=>!d.querySelector('[data-party-tables="B1|B2"]'),'reservation removes recommendation');assert.equal(d.querySelectorAll('.party-option').length,0);assert.equal(shared.commits.filter(c=>c.path==='app/live').length,0);assert.deepEqual(p.errors,[]);
  }finally{p.dom.window.close();}
 });
+
+
+test('reservation details for eleven guests shows an approved dining combination, never single bar stools',async()=>{
+ const shared=fixture(),cfg=shared.data.app.config,live=shared.data.app.live;cfg.formations.test={'4':['A4','L5'],BAR:Array.from({length:12},(_,i)=>'Bar '+(i+1))};live.shifts.PM.rows[0].section='4';live.shifts.PM.assignments={A4:'aj',L5:'aj',...Object.fromEntries(cfg.formations.test.BAR.map(id=>[id,'bar']))};shared.data.app.reservations={group:{name:'Fixture Eleven',people:11,date:live.day,time:'18:00'}};
+ const p=await page(shared);try{const d=p.w.document;p.w.FZHostApp.operation('reservations');d.querySelector('[data-res-details="group"]').click();const candidates=d.querySelector('.reservation-candidates');assert.match(candidates.textContent,/A4 \+ L5/);assert.match(candidates.textContent,/10–11 seats/);assert(!/Bar [0-9]|CAPACITY NOT SET/.test(candidates.textContent));assert.equal(shared.commits.filter(c=>c.path==='app/live').length,0);assert.deepEqual(p.errors,[]);}finally{p.dom.window.close();}
+});

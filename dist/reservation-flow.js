@@ -9,17 +9,11 @@ function alerts(records,now){const result=[];for(const[id,r]of Object.entries(re
  if(r.guestReply?.revision===revision(r))for(const[field,title]of [['confirmedAt','GUEST CONFIRMED'],['arrivedAt','PARTY ARRIVED · READY TO BE SEATED']]){const value=r.guestReply[field];if(value&&now>=value&&now-value<2*3600000&&Math.abs(now-at)<2*3600000)result.push({id,key:id+'_'+field+'_'+value,title,name:r.name,people:r.people,time:r.time,detail:field==='arrivedAt'?'The guest replied HERE. Check table availability.':'The guest replied CONFIRM.'});}
 }return result;}
 function candidates(state,config,reservation,id,shift,records={},now=Date.now()){
- if(!active(reservation)||reservation.date!==state.day||!Number.isInteger(reservation.people))return [];
- const board=state.shifts[shift];if(!board)return [];
- const section=r=>String(r.section).split(/\s*\/\s*/).filter(s=>!/^BAR$/i.test(s)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))[0]||'ZZZ';
- const rows=C.list(board.rows).filter(r=>!r.cut&&r.server&&C.slots(r)<60).sort((a,b)=>C.slots(a)-C.slots(b)||section(a).localeCompare(section(b),undefined,{numeric:true}));
- const held=new Set(Object.entries(records).filter(([other,r])=>other!==id&&active(r)&&r.date===state.day&&C.reservationTime(r.date,r.time)+3600000>now).map(([,r])=>r.table).filter(Boolean));
- return config.tables.flatMap(t=>{const status=state.tables[t.id],row=rows.find(r=>r.id===board.assignments[t.id]);if(!status||status.status!=='ready'||status.partyId||held.has(t.id)||!row||C.slots(row)+Math.ceil(reservation.people/4)>60)return [];
-  const capacity=Number(t.capacity||P?.capacities[t.id]?.max),known=Number.isInteger(capacity)&&capacity>0;
-  if(known&&capacity<reservation.people)return [];
-  const parties=Object.values(state.parties||{}).filter(p=>p.rowId===row.id&&p.shift===shift),guests=parties.reduce((sum,p)=>sum+p.people,0);
-  return [{table:t.id,server:row.server,section:row.section,beeper:row.beeper||'—',turns:C.slots(row),rotation:rows.indexOf(row)+1,activeGuests:guests,activeTables:parties.length,afterGuests:guests+reservation.people,capacity:known?capacity:null,recent:C.risk(state,shift,row.id,now).length>0}];
- }).sort((a,b)=>(a.capacity===null)-(b.capacity===null)||a.turns-b.turns||a.activeGuests-b.activeGuests||a.rotation-b.rotation||(a.capacity||0)-(b.capacity||0)||a.table.localeCompare(b.table,undefined,{numeric:true})).slice(0,3);
+ if(!active(reservation)||!state||reservation.date!==state.day||!Number.isInteger(reservation.people))return [];
+ // Use the same confirmed capacities, approved combinations and formation rules as
+ // Floor PARTY. Unknown capacity is never a usable candidate for a large party.
+ const otherReservations=Object.fromEntries(Object.entries(records||{}).filter(([other])=>other!==id));
+ return P.recommend({state,config,shift,people:reservation.people,records:otherReservations,now}).candidates.slice(0,3).map(c=>({...c,table:c.tables.join(' + '),capacity:c.max,recent:c.recentParties>0}));
 }
 return{active,phone,revision,replyStatus,alerts,candidates};
 });

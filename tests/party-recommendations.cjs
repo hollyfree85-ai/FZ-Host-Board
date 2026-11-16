@@ -7,8 +7,8 @@ function fixture(sections={'1':['L1','L2'],'2':['R1','R2'],'3':['B1','B2','B3'],
 }
 const tableSets=result=>result.candidates.map(c=>c.tables.join('+'));
 test('all owner-supplied single capacities and explicit exceptions are retained',()=>{
- assert.equal(Object.keys(P.capacities).length,44);for(const id of ['A1','A2','A3','A4','F1','F6','D1'])assert.deepEqual(P.capacities[id],{min:4,max:4});
- for(const id of ['B2','B3'])assert.equal(P.capacities[id].max,6);for(const id of ['L5','L6','R5','R6','R7'])assert.deepEqual(P.capacities[id],{min:6,max:7});assert.equal(P.capacities.M2.max,5);assert.equal(P.capacities['Bar 1'],undefined);
+ assert.equal(Object.keys(P.capacities).length,56);for(const id of ['A1','A2','A3','A4','F1','F6','D1'])assert.deepEqual(P.capacities[id],{min:4,max:4});
+ for(const id of ['B2','B3'])assert.equal(P.capacities[id].max,6);for(const id of ['L5','L6','R5','R6','R7'])assert.deepEqual(P.capacities[id],{min:6,max:7});assert.equal(P.capacities.M2.max,5);assert.equal(P.capacities['Bar 1'].max,1);
  const max=ids=>P.groups.find(g=>g.tables.join('+')===ids)?.max;assert.equal(max('C2+C3'),12);assert.equal(max('A4+L5+L6'),20);assert.equal(max('B1+B2+B3'),15);assert.equal(max('E1+F1'),8);assert.equal(max('M1+H3'),10);
  for(const ids of ['A1+A2','F1+F2','H2+H3','C1+C2+C3+C4','D1+D2','E2+E3+E4+E5'])assert.equal(max(ids),undefined);
 });
@@ -56,4 +56,10 @@ test('invalid sizes, missing formation and empty sections explain why no result 
 
 test('PM BAR capacity includes the next automatic skip and stale service days cannot produce suggestions',()=>{
  const f=fixture({'BAR':['M1','M2']});f.people=8;const row=f.state.shifts.PM.rows[0];row.barAuto=true;row.entries=[{kind:'party',people:4,at:now-600000},...Array.from({length:57},()=>({kind:'manual'}))];assert.equal(P.recommend(f).candidates.length,0);row.barAuto=false;assert.equal(P.recommend(f).candidates.length,1);f.state.day='2026-11-15';assert.match(P.recommend(f).reason,/current service day/);
+});
+
+
+test('all twelve bar stools seat one only and never combine, including compact Bar1 IDs',()=>{
+ const ids=Array.from({length:12},(_,n)=>'Bar '+(n+1));const f=fixture({'BAR':ids});f.people=1;assert.equal(P.recommend(f).candidates.length,12);for(const c of P.recommend(f).candidates){assert.equal(c.max,1);assert.equal(c.tables.length,1);}for(const people of [2,6,11,12,20])assert.equal(P.recommend({...f,people}).candidates.length,0);
+ const compact=fixture({'BAR':['Bar1','Bar12']});compact.people=1;assert.equal(P.recommend(compact).candidates.length,2);assert.equal(P.capacityFor('Bar13'),null);
 });

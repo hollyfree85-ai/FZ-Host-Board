@@ -7,13 +7,20 @@ test('host alerts at 1 hour and 10 minutes, with English reply alerts and immuta
  records.test.date='2026-11-20';assert.equal(F.replyStatus(records.test),'Awaiting confirmation');assert.equal(F.alerts(records,now+11*60000).length,0);
  records.test.status='deleted';assert.equal(F.alerts(records,now).length,0);
 });
-test('candidate snapshot respects holds, cuts, capacities, actual rotation turns and active volume without mutation',()=>{
- const config={tables:['A1','A2','A3','A4','B1','B2','B3'].map(id=>({id,capacity:id==='A1'?2:id==='A3'?undefined:8}))},state=C.initial(config,now);
- state.shifts.PM={rows:[{id:'a',server:'Angela',section:'2',entries:[]},{id:'b',server:'Ashley',section:'3',entries:[]},{id:'cut',server:'Cut Server',section:'4',entries:[],cut:true}],assignments:{A1:'a',A2:'a',A3:'a',A4:'a',B1:'b',B2:'cut',B3:'b'}};
- state.tables.A4.status='reserved';state.tables.B3={status:'seated',partyId:'party'};state.parties.party={id:'party',rowId:'b',shift:'PM',people:4,primary:'B3'};
+test('reservation candidates use the current formation, approved groups, workload and holds without mutation',()=>{
+ const config={tables:['L5','L6','R5','R6','A1'].map(id=>({id})),formations:{test:{'4':['L5','L6'],'5':['R5'],'6':['R6'],'2':['A1']}}},state=C.initial(config,now);
+ state.shifts.PM={formation:'test',rows:[{id:'a',server:'Angela',section:'4',entries:[]},{id:'b',server:'Ashley',section:'5',entries:[]},{id:'cut',server:'Cut Server',section:'6',entries:[],cut:true}],assignments:{L5:'a',L6:'a',R5:'b',R6:'cut',A1:'a'}};
+ state.tables.L6.status='reserved';state.tables.A1={status:'seated',partyId:'party'};state.parties.party={id:'party',rowId:'b',shift:'PM',people:4,primary:'A1'};
  const record=r(),before=JSON.stringify(state),list=F.candidates(state,config,record,'x','PM',{},now);
- assert.equal(list[0].table,'A2');assert(!list.some(c=>['A1','A4','B2','B3'].includes(c.table)));assert.equal(list.find(c=>c.table==='B1').afterGuests,11);assert(!list.some(c=>c.table==='A3'),'A3 now has the confirmed four-seat capacity');assert.equal(JSON.stringify(state),before);
- const held=F.candidates(state,config,record,'x','PM',{other:{...record,table:'A2'}},now);assert(!held.some(c=>c.table==='A2'));
- state.shifts.PM.rows[0].entries=[{id:'e',kind:'party',people:8,at:now-600000}];assert.equal(F.candidates(state,config,record,'x','PM',{},now)[0].table,'B1');
+ assert.equal(list[0].table,'L5');assert(!list.some(c=>['A1','L6','R6'].includes(c.table)));assert.equal(list.find(c=>c.table==='R5').afterGuests,11);assert(list.every(c=>c.capacity>=record.people));assert.equal(JSON.stringify(state),before);
+ const held=F.candidates(state,config,record,'x','PM',{other:{...record,table:'L5'}},now);assert(!held.some(c=>c.table==='L5'));
+ assert(F.candidates(state,config,record,'x','PM',{x:{...record,table:'L5'}},now).some(c=>c.table==='L5'),'own table assignment is not a competing hold');
+ state.shifts.PM.rows[0].entries=[{id:'e',kind:'party',people:8,at:now-600000}];assert.equal(F.candidates(state,config,record,'x','PM',{},now)[0].table,'R5');
+ state.tables.L6.status='ready';assert.equal(F.candidates(state,config,{...record,people:11},'x','PM',{},now)[0].table,'L5 + L6');
  assert.deepEqual(F.candidates(state,config,{...record,date:'2026-11-20'},'x','PM',{},now),[]);
+});
+test('eleven-guest reservation cannot use bar stools or unknown capacity, including erroneous old config capacities',()=>{
+ const stools=Array.from({length:12},(_,n)=>'Bar '+(n+1)),config={tables:[...stools,'Unknown','A4','L5'].map(id=>({id,capacity:99})),formations:{test:{BAR:[...stools,'Unknown'],'4':['A4','L5']}}},state=C.initial(config,now);
+ state.shifts.PM={formation:'test',rows:[{id:'bar',server:'Bartender',section:'BAR',entries:[]},{id:'l',server:'Dining Server',section:'4',entries:[{kind:'manual'}]}],assignments:Object.fromEntries([...stools.map(id=>[id,'bar']),['Unknown','bar'],['A4','l'],['L5','l']])};
+ const record={...r(),people:11},list=F.candidates(state,config,record,'x','PM',{},now);assert.equal(list.length,1);assert.deepEqual(list[0].tables,['A4','L5']);assert.equal(list[0].capacity,11);state.tables.A4.status='reserved';assert.deepEqual(F.candidates(state,config,record,'x','PM',{},now),[]);
 });
