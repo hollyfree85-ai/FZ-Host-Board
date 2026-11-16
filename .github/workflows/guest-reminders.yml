@@ -1,0 +1,29 @@
+name: Guest reservation reminders
+on:
+  schedule:
+    - cron: '3-58/5 * * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: guest-reservation-reminders
+  cancel-in-progress: false
+jobs:
+  send:
+    # Activation is deliberately gated until verified senders and an owner test exist.
+    if: vars.GUEST_REMINDERS_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/guest-reminders.cjs
+        env:
+          GUEST_REMINDERS_ENABLED: 'true'
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
