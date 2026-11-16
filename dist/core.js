@@ -15,6 +15,8 @@ function normalize(raw,config){const s=copy(raw||initial(config));s.shifts=s.shi
 function rowOf(s,shift,id){const row=s.shifts[shift]?.rows.find(r=>r.id===id);if(!row)fail('Server row changed. Choose the server again.');return row;}
 function autoSkip(row,shift){row.entries=list(row.entries).filter(e=>e.kind!=='auto');if(shift!=='PM'||!row.barAuto||!String(row.section).toUpperCase().includes('BAR'))return;let count=0;row.entries=row.entries.flatMap(e=>{if(e.kind!=='party')return[e];count++;return count%2?[e]:[e,{id:'auto_'+e.id,kind:'auto',after:e.id,at:e.at}];});}
 function slots(row){return list(row.entries).reduce((n,e)=>n+(e.kind==='party'?Math.ceil(e.people/4):1),0);}
+function sectionOrder(a,b){const key=r=>String(r.section).split(/\s*\/\s*/).filter(s=>!/^BAR$/i.test(s)).sort((x,y)=>x.localeCompare(y,undefined,{numeric:true}))[0]||'ZZZ';return key(a).localeCompare(key(b),undefined,{numeric:true});}
+function rotationRows(board){return list(board?.rows).filter(r=>!r.cut&&slots(r)<60).sort((a,b)=>slots(a)-slots(b)||sectionOrder(a,b));}
 function checkSpace(row){if(slots(row)>60)fail('This server has no remaining Board slots.');}
 function partyFor(s,table){const t=s.tables[table];return t?.partyId?s.parties[t.partyId]||null:null;}
 function members(p){return[p.primary,...list(p.secondary)];}
@@ -146,7 +148,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  const tableChanges=tableHistoryChanges(tableBefore,s,cmd,tableRestore);if(tableChanges.length)s.tableHistory[cmd.id]={day:s.day,at:cmd.at,sequence:Object.keys(s.tableHistory).length+1,changes:tableChanges};
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];return validate(s);
 }
-return {tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
+return {tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,partyFor,members,risk,reduce,validate};
 });
 
 

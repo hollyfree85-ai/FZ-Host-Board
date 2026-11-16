@@ -42,12 +42,28 @@ test('changing formation and breaking section changes eligibility immediately',(
 test('a joined D party blocks C combinations, and release permits them again',()=>{
  const f=fixture();f.state.parties.old={primary:'D1',secondary:['D2'],rowId:'x',shift:'AM',people:8};assert(!tableSets(P.recommend(f)).includes('C2+C3'));delete f.state.parties.old;assert(tableSets(P.recommend(f)).includes('C2+C3'));
 });
-test('nearest rotation then area preference, recent seating, active volume and stable section order',()=>{
+test('recommendation keeps complete Board queue ahead of area or current workload',()=>{
  const f=fixture();assert.equal(P.recommend(f).candidates[0].tables.join('+'),'L1+L2');
  f.state.shifts.PM.rows[0].entries=[{kind:'party',people:4,at:now-600000}];assert.equal(P.recommend(f).candidates[0].tables.join('+'),'R1+R2');
- f.state.tables.R1.status='reserved';assert.equal(P.recommend(f).candidates[0].tables.join('+'),'C1+C2');
- const g=fixture({'1':['L1','L2'],'2':['R1','R2']});g.state.parties.old={primary:'A1',secondary:[],rowId:'1',shift:'PM',people:4};assert.equal(P.recommend(g).candidates[0].server,'Server 2');
- g.state.shifts.PM.rows.forEach(r=>r.entries=[{id:r.id,kind:'party',people:4,at:now-600000}]);g.state.shifts.PM.rows[1].entries[0].at=now-60000;assert.equal(P.recommend(g).candidates[0].server,'Server 1');
+ f.state.tables.R1.status='reserved';assert.equal(P.recommend(f).candidates[0].tables.join('+'),'B1+B2');
+ const g=fixture({'1':['L1','L2'],'2':['R1','R2']});g.state.parties.old={primary:'A1',secondary:[],rowId:'1',shift:'PM',people:4};assert.equal(P.recommend(g).candidates[0].server,'Server 1');
+ g.state.shifts.PM.rows.forEach(r=>r.entries=[{id:r.id,kind:'party',people:4,at:now-600000}]);g.state.shifts.PM.rows[0].entries[0].at=now-60000;assert.equal(P.recommend(g).candidates[0].server,'Server 1');
+});
+test('Breanna S3 stays ahead of Megan Sisk S4 for three guests at equal turns; seating or no fitting table advances the choice',()=>{
+ const f=fixture({'2':['A1'],'3':['F2','F3'],'4':['L1','L2']});f.people=3;const board=f.state.shifts.PM;
+ board.rows[0].entries=[{kind:'manual'},{kind:'manual'}];board.rows[1].server='Breanna';board.rows[2].server='Megan Sisk';
+ for(const row of board.rows.slice(1))row.entries=[{id:row.id,kind:'party',people:3,at:now-60000}];
+ assert.equal(C.rotationRows(board)[0].server,'Breanna');assert.equal(P.recommend(f).candidates[0].server,'Breanna');assert.equal(P.recommend(f).candidates[0].tables.length,1);
+ board.rows[1].entries.push({kind:'party',people:3,at:now});assert.equal(C.rotationRows(board)[0].server,'Megan Sisk');assert.equal(P.recommend(f).candidates[0].server,'Megan Sisk');board.rows[1].entries.pop();
+ f.state.tables.F2.status='seated';assert.equal(P.recommend(f).candidates[0].server,'Breanna');f.state.tables.F3.status='cleaning';assert.equal(P.recommend(f).candidates[0].server,'Megan Sisk');
+ f.state.tables.F2.status='ready';f.people=5;assert.equal(P.recommend(f).candidates[0].server,'Megan Sisk');assert.deepEqual(P.recommend(f).candidates[0].tables,['L1','L2']);
+});
+test('a fitting single table wins over a preferred-area combination for the same next server',()=>{
+ const f=fixture({'3':['C2','L1','L2']});f.people=6;assert.deepEqual(P.recommend(f).candidates[0].tables,['C2']);f.state.tables.C2.status='reserved';assert.deepEqual(P.recommend(f).candidates[0].tables,['L1','L2']);
+});
+test('large party uses next server approved combination before a later server L/R single; area only chooses within one queue position',()=>{
+ const f=fixture({'3':['E3','E4'],'4':['L5']});f.people=6;assert.equal(P.recommend(f).candidates[0].rowId,'3');assert.deepEqual(P.recommend(f).candidates[0].tables,['E3','E4']);
+ const g=fixture({'3':['C2','L5']});g.people=6;assert.deepEqual(P.recommend(g).candidates[0].tables,['L5']);g.people=3;assert.equal(P.recommend(g).candidates[0].max,6);
 });
 test('workload includes active AM carryover for a PM server without changing rotation',()=>{
  const f=fixture();f.state.shifts.AM.rows=[{id:'am',server:'Server 1',section:'1',entries:[]}];f.state.parties.old={primary:'A1',secondary:['A2'],rowId:'am',shift:'AM',people:7};const c=P.recommend(f).candidates.find(c=>c.rowId==='1');assert.equal(c.activeGuests,7);assert.equal(c.activeTables,2);assert.equal(c.afterGuests,15);assert.equal(c.turns,0);

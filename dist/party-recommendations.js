@@ -19,8 +19,6 @@ const groups=[
  ['E1 F1',8],['E2 E3',8],['E3 E4',8,10],['E4 E5',8,10],['E2 E3 E4',12]
 ].map(([ids,min,max=min])=>Object.freeze({tables:Object.freeze(ids.split(' ')),min,max}));
 Object.freeze(groups);
-const sectionKey=row=>String(row.section||'').split(/\s*\/\s*/).filter(s=>!/^BAR$/i.test(s)).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))[0]||'ZZZ';
-const rotationSort=(a,b)=>C.slots(a)-C.slots(b)||sectionKey(a).localeCompare(sectionKey(b),undefined,{numeric:true})||a.id.localeCompare(b.id);
 const serverKey=name=>String(name||'').trim().toLowerCase().replace(/\s+/g,' ');
 function sectionFor(board,config,id,row){
  const sections=String(row.section||'').split(/\s*\/\s*/).filter(Boolean);
@@ -50,9 +48,9 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  if(state?.day!==C.dayAt(now))return {...result,reason:'Wait for the current service day to load before searching.'};
  const board=state?.shifts?.[shift];
  if(!board?.formation||!config?.formations?.[board.formation])return {...result,reason:'Choose a formation before searching for tables.'};
- const allRows=C.list(board.rows).filter(r=>!r.cut&&String(r.server||'').trim()&&C.slots(r)<60).sort(rotationSort);
- if(!allRows.length)return {...result,reason:'Assign an active server to the current formation first.'};
- const rows=allRows.filter(r=>{const nextAutoSkip=shift==='PM'&&r.barAuto!==false&&String(r.section).toUpperCase().includes('BAR')&&C.list(r.entries).filter(e=>e.kind==='party').length%2===1?1:0;return C.slots(r)+Math.ceil(people/4)+nextAutoSkip<=60;}),rowMap=new Map(rows.map(r=>[r.id,r]));
+ const allRows=C.rotationRows(board),rotationIndex=new Map(allRows.map((r,i)=>[r.id,i]));
+ if(!allRows.some(r=>String(r.server||'').trim()))return {...result,reason:'Assign an active server to the current formation first.'};
+ const rows=allRows.filter(r=>{if(!String(r.server||'').trim())return false;const nextAutoSkip=shift==='PM'&&r.barAuto!==false&&String(r.section).toUpperCase().includes('BAR')&&C.list(r.entries).filter(e=>e.kind==='party').length%2===1?1:0;return C.slots(r)+Math.ceil(people/4)+nextAutoSkip<=60;}),rowMap=new Map(rows.map(r=>[r.id,r]));
  const knownTables=new Set(C.list(config.tables).map(t=>t.id));
  const held=new Set(Object.values(records||{}).filter(r=>r&&r.table&&r.date===state.day&&!/cancel|complete|seated|no.?show|deleted/i.test(r.status||'')&&C.reservationTime(r.date,r.time)+3600000>now).flatMap(r=>[r.table,...C.list(r.secondary)]));
  const formedTables=new Set(Object.values(config.formations[board.formation]).flatMap(C.list));
@@ -65,15 +63,16 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
   if(ids.filter(id=>/^C/.test(id)).length>1&&joinedD||ids.filter(id=>/^D/.test(id)).length>1&&joinedC)continue;
   const assigned=ids.map(id=>rowMap.get(board.assignments?.[id]));if(assigned.some(r=>!r))continue;
   const sections=ids.map((id,i)=>sectionFor(board,config,id,assigned[i]));if(sections.some(s=>!s))continue;
-  const uniqueRows=[...new Map(assigned.map(r=>[r.id,r])).values()].sort(rotationSort);
+  const uniqueRows=[...new Map(assigned.map(r=>[r.id,r])).values()].sort((a,b)=>rotationIndex.get(a.id)-rotationIndex.get(b.id));
   const uniqueSections=[...new Set(sections)],crossSection=uniqueSections.length>1||uniqueRows.length>1;
   if(crossSection){result.crossSectionCount++;if(!allowCrossSection)continue;}
   const row=uniqueRows[0],load=loads.get(row.id);
-  result.candidates.push({tables:[...ids],min:option.min,max:option.max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotation:allRows.indexOf(row)+1,area:areaRank(ids),...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
+  result.candidates.push({tables:[...ids],min:option.min,max:option.max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
  }
- // Same-section first. Respect Board turns, then the owner's area order;
- // use recent seating volume and active guests to balance equally due servers.
- result.candidates.sort((a,b)=>Number(a.crossSection)-Number(b.crossSection)||a.turns-b.turns||a.area-b.area||a.recentGuests-b.recentGuests||a.activeGuests-b.activeGuests||a.activeTables-b.activeTables||a.rotation-b.rotation||(a.max-people)-(b.max-people)||a.tables.length-b.tables.length||a.tables.join().localeCompare(b.tables.join(),undefined,{numeric:true}));
+ // Preserve the exact Board queue, including section order at equal turn counts.
+ // Area and workload must never jump ahead of an earlier eligible server.
+ // Always prefer a fitting single table before considering combinations.
+ result.candidates.sort((a,b)=>Number(a.crossSection)-Number(b.crossSection)||a.rotation-b.rotation||Number(a.tables.length>1)-Number(b.tables.length>1)||(people>=6?a.area-b.area:a.tables.length-b.tables.length)||(a.max-people)-(b.max-people)||a.tables.length-b.tables.length||a.tables.join().localeCompare(b.tables.join(),undefined,{numeric:true}));
  if(!result.candidates.length)result.reason='No suitable READY tables in one section for this party.';
  return result;
 }
