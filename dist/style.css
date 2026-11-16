@@ -215,6 +215,7 @@ nav{grid-template-columns:repeat(4,minmax(0,1fr))}nav button{min-width:0;padding
 .reservation-row-actions{flex-wrap:wrap}.reservation-detail-card dl{display:grid;grid-template-columns:100px minmax(0,1fr);gap:12px}.reservation-detail-card dt{font-weight:800;color:#9bcfe8}.reservation-detail-card dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}.reservation-detail-card h3{overflow-wrap:anywhere}
 
 /* Owner daily log: readable rows on tablets, stacked labels on phones. */
+[data-owner-only][hidden]{display:none!important}
 #modal.table-history-dialog{width:min(1050px,96vw);max-width:96vw}
 .table-history-toolbar{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:18px 0}
 .table-history-toolbar label{min-width:150px;max-width:300px;flex:1;font-weight:700}
