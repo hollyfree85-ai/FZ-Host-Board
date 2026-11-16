@@ -12,7 +12,7 @@ test('candidate snapshot respects holds, cuts, capacities, actual rotation turns
  state.shifts.PM={rows:[{id:'a',server:'Angela',section:'2',entries:[]},{id:'b',server:'Ashley',section:'3',entries:[]},{id:'cut',server:'Cut Server',section:'4',entries:[],cut:true}],assignments:{A1:'a',A2:'a',A3:'a',A4:'a',B1:'b',B2:'cut',B3:'b'}};
  state.tables.A4.status='reserved';state.tables.B3={status:'seated',partyId:'party'};state.parties.party={id:'party',rowId:'b',shift:'PM',people:4,primary:'B3'};
  const record=r(),before=JSON.stringify(state),list=F.candidates(state,config,record,'x','PM',{},now);
- assert.equal(list[0].table,'A2');assert(!list.some(c=>['A1','A4','B2','B3'].includes(c.table)));assert.equal(list.find(c=>c.table==='B1').afterGuests,11);assert.equal(list.find(c=>c.table==='A3').capacity,null);assert.equal(JSON.stringify(state),before);
+ assert.equal(list[0].table,'A2');assert(!list.some(c=>['A1','A4','B2','B3'].includes(c.table)));assert.equal(list.find(c=>c.table==='B1').afterGuests,11);assert(!list.some(c=>c.table==='A3'),'A3 now has the confirmed four-seat capacity');assert.equal(JSON.stringify(state),before);
  const held=F.candidates(state,config,record,'x','PM',{other:{...record,table:'A2'}},now);assert(!held.some(c=>c.table==='A2'));
  state.shifts.PM.rows[0].entries=[{id:'e',kind:'party',people:8,at:now-600000}];assert.equal(F.candidates(state,config,record,'x','PM',{},now)[0].table,'B1');
  assert.deepEqual(F.candidates(state,config,{...record,date:'2026-11-20'},'x','PM',{},now),[]);

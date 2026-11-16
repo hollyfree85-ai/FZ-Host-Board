@@ -1,4 +1,4 @@
-(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./core.js'):root.HostCore);if(typeof module==='object'&&module.exports)module.exports=api;else root.ReservationFlow=api;})(globalThis,function(C){
+(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./core.js'):root.HostCore,typeof module==='object'&&module.exports?require('./party-recommendations.js'):root.PartyRecommendations);if(typeof module==='object'&&module.exports)module.exports=api;else root.ReservationFlow=api;})(globalThis,function(C,P){
 'use strict';
 const active=r=>!!r&&!/cancel|complete|seated|no.?show|deleted/i.test(r.status||'');
 const phone=value=>{const d=String(value||'').replace(/\D/g,'').replace(/^1(?=\d{10}$)/,'');return /^[2-9]\d{9}$/.test(d)?'+1'+d:'';};
@@ -15,7 +15,7 @@ function candidates(state,config,reservation,id,shift,records={},now=Date.now())
  const rows=C.list(board.rows).filter(r=>!r.cut&&r.server&&C.slots(r)<60).sort((a,b)=>C.slots(a)-C.slots(b)||section(a).localeCompare(section(b),undefined,{numeric:true}));
  const held=new Set(Object.entries(records).filter(([other,r])=>other!==id&&active(r)&&r.date===state.day&&C.reservationTime(r.date,r.time)+3600000>now).map(([,r])=>r.table).filter(Boolean));
  return config.tables.flatMap(t=>{const status=state.tables[t.id],row=rows.find(r=>r.id===board.assignments[t.id]);if(!status||status.status!=='ready'||status.partyId||held.has(t.id)||!row||C.slots(row)+Math.ceil(reservation.people/4)>60)return [];
-  const capacity=Number(t.capacity),known=Number.isInteger(capacity)&&capacity>0;
+  const capacity=Number(t.capacity||P?.capacities[t.id]?.max),known=Number.isInteger(capacity)&&capacity>0;
   if(known&&capacity<reservation.people)return [];
   const parties=Object.values(state.parties||{}).filter(p=>p.rowId===row.id&&p.shift===shift),guests=parties.reduce((sum,p)=>sum+p.people,0);
   return [{table:t.id,server:row.server,section:row.section,beeper:row.beeper||'—',turns:C.slots(row),rotation:rows.indexOf(row)+1,activeGuests:guests,activeTables:parties.length,afterGuests:guests+reservation.people,capacity:known?capacity:null,recent:C.risk(state,shift,row.id,now).length>0}];
