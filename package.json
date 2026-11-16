@@ -1,10 +1,10 @@
 {
   "name": "fz-host-board-next",
-  "version": "1.2.62",
+  "version": "1.2.63",
   "private": true,
   "description": "Realtime host Board and Floor with atomic party operations",
   "scripts": {
-    "test": "node --test tests/*.cjs",
+    "test": "node --test tests/*.cjs tests/*.mjs",
     "check": "node scripts/check.cjs",
     "daily-reset": "node scripts/daily-reset.cjs"
   },

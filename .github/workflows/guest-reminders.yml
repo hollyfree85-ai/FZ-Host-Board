@@ -11,7 +11,7 @@ concurrency:
 jobs:
   send:
     # Activation is deliberately gated until verified senders and an owner test exist.
-    if: vars.GUEST_REMINDERS_ENABLED == 'true'
+    if: vars.GUEST_REMINDERS_ENABLED == 'true' || vars.RESERVATION_SMS_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -20,10 +20,21 @@ jobs:
         with:
           node-version: '22'
       - run: node scripts/guest-reminders.cjs
+        if: vars.GUEST_REMINDERS_ENABLED == 'true'
         env:
           GUEST_REMINDERS_ENABLED: 'true'
+          RESERVATION_SMS_ENABLED: ${{ vars.RESERVATION_SMS_ENABLED }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           RESEND_FROM: ${{ secrets.RESEND_FROM }}
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}
+      - run: node scripts/reservation-sms.mjs
+        if: vars.RESERVATION_SMS_ENABLED == 'true'
+        env:
+          RESERVATION_SMS_ENABLED: 'true'
+          FIREBASE_BOARD_URL: https://table-live-by-iwanto-zhang-default-rtdb.firebaseio.com/juicyTableLive/JUICY-HUNTSVILLE/hostBoardNextV1
+          SMS_PUBLIC_BASE_URL: https://juicy-huntsville-reservations.hollyfree85.chatgpt.site
           TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
           TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
           TWILIO_MESSAGING_SERVICE_SID: ${{ secrets.TWILIO_MESSAGING_SERVICE_SID }}

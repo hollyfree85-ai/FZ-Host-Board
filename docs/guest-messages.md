@@ -1,3 +1,5 @@
+> For the newer 1-hour / 10-minute SMS and CONFIRM / HERE flow, see [reservation-sms.md](reservation-sms.md). Do not activate the old SMS flow alongside it. Email activation remains separate.
+
 # Guest confirmations and reminders
 
 Public guest URL: https://hollyfree85-ai.github.io/FZ-Host-Board/book.html

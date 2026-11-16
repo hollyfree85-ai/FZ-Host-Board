@@ -9,7 +9,7 @@ function arrivalTime(date,time){
  const back=new Intl.DateTimeFormat('sv-SE',{timeZone:ZONE,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(at);
  return back===date+' '+time?at:NaN;
 }
-function configured(env){return {email:!!(env.RESEND_API_KEY&&env.RESEND_FROM),sms:!!(env.TWILIO_ACCOUNT_SID&&env.TWILIO_AUTH_TOKEN&&env.TWILIO_MESSAGING_SERVICE_SID)};}
+function configured(env){return {email:!!(env.RESEND_API_KEY&&env.RESEND_FROM),sms:env.RESERVATION_SMS_ENABLED!=='true'&&!!(env.TWILIO_ACCOUNT_SID&&env.TWILIO_AUTH_TOKEN&&env.TWILIO_MESSAGING_SERVICE_SID)};}
 function eventFor(id,r,now){
  if(!/^web_[a-f0-9]{24}$/.test(id)||!r||r.status!=='scheduled'||r.source!=='online'||r.online?.contactConsent?.textVersion!=='reservation-reminders-v1')return null;
  const arrival=arrivalTime(r.date,r.time);if(!Number.isFinite(arrival)||arrival<=now)return null;
