@@ -1,4 +1,4 @@
-const VERSION='1.2.64',CACHE='fz-host-next-'+VERSION;
+const VERSION='1.2.65',CACHE='fz-host-next-'+VERSION;
 const ASSETS=['./','./index.html','./style.css','./core.js','./transport.js','./communications.js','./reservation-flow.js','./party-recommendations.js','./party-ui.js','./app.js','./floor-alerts.js','./table-alerts.js','./voice-commands.js','./app-updates.js','./app-config.json','./manifest.webmanifest','./firebase-app-compat.js','./firebase-database-compat.js','./icon-192.png','./icon-512.png'].map(path=>/\.(js|css)$/.test(path)?path+'?v='+VERSION:path);
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS.map(url=>new Request(url,{cache:'reload'})))).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('fz-host-next-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
