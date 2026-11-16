@@ -10,7 +10,7 @@ function reservationUndoExpiry(r){return r?.status==='deleted'&&Number.isFinite(
 function reservationUndoAvailable(r,now){const expiry=reservationUndoExpiry(r);return expiry!==null&&now<expiry;}
 function reservationUndoExpired(r,now){const expiry=reservationUndoExpiry(r);return expiry!==null&&now>=expiry;}
 function emptyShift(){return {formation:'',rows:[],assignments:{}};}
-function initial(config,at=Date.now()){return {schema:1,day:dayAt(at),revision:0,updatedAt:at,shifts:{AM:emptyShift(),PM:emptyShift()},tables:Object.fromEntries(config.tables.map(t=>[t.id,{status:'ready'}])),parties:{},undo:{},receipts:{}};}
+function initial(config,at=Date.now()){return {schema:1,day:dayAt(at),revision:0,updatedAt:at,shifts:{AM:emptyShift(),PM:emptyShift()},tables:Object.fromEntries(config.tables.map(t=>[t.id,{status:'ready'}])),parties:{},undo:{},receipts:{},tableHistory:{}};}
 function normalize(raw,config){const s=copy(raw||initial(config));s.shifts=s.shifts||{};for(const sh of ['AM','PM']){const b=s.shifts[sh]||(s.shifts[sh]=emptyShift());b.rows=list(b.rows);b.assignments=b.assignments||{};b.rows.forEach(r=>{r.entries=list(r.entries);r.barAuto=r.barAuto!==false;});}s.tables=s.tables||{};for(const t of config.tables)s.tables[t.id]=s.tables[t.id]||{status:'ready'};s.parties=s.parties||{};s.undo=s.undo||{};s.receipts=s.receipts||{};return s;}
 function rowOf(s,shift,id){const row=s.shifts[shift]?.rows.find(r=>r.id===id);if(!row)fail('Server row changed. Choose the server again.');return row;}
 function autoSkip(row,shift){row.entries=list(row.entries).filter(e=>e.kind!=='auto');if(shift!=='PM'||!row.barAuto||!String(row.section).toUpperCase().includes('BAR'))return;let count=0;row.entries=row.entries.flatMap(e=>{if(e.kind!=='party')return[e];count++;return count%2?[e]:[e,{id:'auto_'+e.id,kind:'auto',after:e.id,at:e.at}];});}
@@ -52,7 +52,36 @@ function placeSectionLabels(width,height,tables,groups,extras=[]){
 }
 function beeperRows(s){return Object.fromEntries(['AM','PM'].flatMap(shift=>list(s.shifts[shift]?.rows).filter(r=>r.beeper).map(r=>[shift+'_'+r.id,{day:s.day,shift,rowId:r.id,server:r.server,beeper:String(r.beeper),section:r.section}])));}
 function retainBeeperHistory(history,at){const first=new Date(dayAt(at)+'T12:00:00Z');first.setUTCDate(first.getUTCDate()-6);const cutoff=first.toISOString().slice(0,10);return Object.fromEntries(Object.entries(history||{}).filter(([,e])=>e.day>=cutoff&&e.day<=dayAt(at)));}
-function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.id||!cmd.type||!Number.isFinite(cmd.at))fail('Invalid command.');if(s.receipts[cmd.id])return s;if(now-cmd.at>120000&&cmd.type!=='DAILY_RESET')fail('This operation is too old. Reopen the table.','EXPIRED');
+const tableHistoryCommands=new Set(['SEAT','MOVE','PEOPLE','SECONDARY','STATUS','DELETE','CLEAR_ENTRY','UNDO','RESTORE_READY','ROW_EDIT','CORRECT','CLEAR_SHIFT','CLEAR']);
+function tableHistoryParty(s,p){if(!p)return null;const row=list(s.shifts[p.shift]?.rows).find(r=>r.id===p.rowId);return {id:p.id,primary:p.primary,secondary:list(p.secondary),people:p.people,server:row?.server||'',shift:p.shift,seatedAt:p.at};}
+function tableHistoryBefore(s,cmd){
+ if(!tableHistoryCommands.has(cmd.type)||cmd.type==='STATUS'&&cmd.status!=='cleaning')return null;
+ const parties=Object.fromEntries(Object.values(s.parties).map(p=>[p.id,tableHistoryParty(s,p)]));
+ if(cmd.type==='CLEAR_ENTRY'){const row=list(s.shifts[cmd.shift||'PM']?.rows).find(r=>r.id===cmd.rowId),entry=list(row?.entries).find(e=>e.id===cmd.entryId&&e.kind==='party');if(entry&&!parties[entry.id])parties[entry.id]=tableHistoryParty(s,{...entry,rowId:row.id,shift:cmd.shift||'PM'});}
+ return parties;
+}
+function tableHistoryChanges(before,s,cmd,restoring){
+ if(!before)return [];
+ const after=Object.fromEntries(Object.values(s.parties).map(p=>[p.id,tableHistoryParty(s,p)])),changes=[];
+ // A Board-only Undo restores a historical entry without occupying its tables.
+ if(cmd.type==='UNDO'&&restoring&&!after[restoring.id])after[restoring.id]=restoring;
+ const joined=p=>[...list(p?.secondary)].sort().join('|');
+ for(const id of new Set([...Object.keys(before),...Object.keys(after)])){
+  const from=before[id]||null,to=after[id]||null;let action='';
+  if(cmd.type==='SEAT'&&id===cmd.id)action='SEATED';
+  else if(['UNDO','RESTORE_READY'].includes(cmd.type)&&!from&&to)action='RESTORED';
+  else if(from&&!to){if(cmd.type==='STATUS')action='CLEANING';else if(cmd.type==='DELETE'||cmd.type==='CLEAR_ENTRY')action='DELETED';else if(cmd.type==='CLEAR_SHIFT'||cmd.type==='CLEAR')action='SHIFT_CLEARED';}
+  else if(from&&to){if(from.primary!==to.primary)action='MOVED';else if(from.server!==to.server)action='SERVER_CHANGED';else if(from.people!==to.people)action='PEOPLE_CHANGED';else if(joined(from)!==joined(to))action='TABLES_CHANGED';else if(from.shift!==to.shift)action='SHIFT_CHANGED';}
+  if(action)changes.push({partyId:id,action,from,to,tables:[...new Set([...(from?[from.primary,...from.secondary]:[]),...(to?[to.primary,...to.secondary]:[])])]});
+ }
+ return changes;
+}
+function tableHistoryRows(s,table='',now=Date.now()){
+ const day=dayAt(now);if(s?.day!==day)return [];
+ return Object.entries(s.tableHistory||{}).filter(([,event])=>event.day===day).flatMap(([id,event])=>list(event.changes).filter(change=>!table||list(change.tables).includes(table)).map((change,index)=>({id:id+'_'+index,at:event.at,sequence:event.sequence||0,...change}))).sort((a,b)=>b.at-a.at||b.sequence-a.sequence||a.id.localeCompare(b.id));
+}
+function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.id||!cmd.type||!Number.isFinite(cmd.at))fail('Invalid command.');if(s.receipts[cmd.id]||s.tableHistory?.[cmd.id])return s;if(now-cmd.at>120000&&cmd.type!=='DAILY_RESET')fail('This operation is too old. Reopen the table.','EXPIRED');
+ const tableLog=s.tableHistory||{},tableBefore=tableHistoryBefore(s,cmd),tableRestore=cmd.type==='UNDO'?tableHistoryParty(s,s.undo[cmd.undoId]?.party):null;
  const oldBeepers=beeperRows(s),history=copy(s.beeperHistory||{}),historyStartedAt=s.beeperHistoryStartedAt||cmd.at;
  if(!s.beeperHistoryStartedAt)for(const [key,value]of Object.entries(oldBeepers))history['initial_'+key]={...value,at:cmd.at,event:'OBSERVED',reason:'Logging started'};
  if(cmd.type==='DAILY_RESET'){const day=dayAt(cmd.at);if(s.day>=day)return s;s=initial(config,cmd.at);s.lastResetAt=cmd.at;}
@@ -113,9 +142,11 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  }
  const newBeepers=beeperRows(s);for(const key of new Set([...Object.keys(oldBeepers),...Object.keys(newBeepers)])){const old=oldBeepers[key],current=newBeepers[key];if(old&&current&&old.beeper===current.beeper&&old.server===current.server&&old.day===current.day)continue;if(old)history[cmd.id+'_removed_'+key]={...old,at:cmd.at,event:'REMOVED',reason:cmd.type};if(current)history[cmd.id+'_assigned_'+key]={...current,at:cmd.at,event:'ASSIGNED',reason:cmd.type};}
  s.beeperHistory=retainBeeperHistory(history,now);s.beeperHistoryStartedAt=historyStartedAt;
+ s.tableHistory=Object.fromEntries(Object.entries(tableLog).filter(([,e])=>e.day===s.day));
+ const tableChanges=tableHistoryChanges(tableBefore,s,cmd,tableRestore);if(tableChanges.length)s.tableHistory[cmd.id]={day:s.day,at:cmd.at,sequence:Object.keys(s.tableHistory).length+1,changes:tableChanges};
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];return validate(s);
 }
-return {reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
+return {tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,partyFor,members,risk,reduce,validate};
 });
 
 
