@@ -214,21 +214,19 @@ nav{grid-template-columns:repeat(4,minmax(0,1fr))}nav button{min-width:0;padding
 
 .reservation-row-actions{flex-wrap:wrap}.reservation-detail-card dl{display:grid;grid-template-columns:100px minmax(0,1fr);gap:12px}.reservation-detail-card dt{font-weight:800;color:#9bcfe8}.reservation-detail-card dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}.reservation-detail-card h3{overflow-wrap:anywhere}
 
-/* Daily table activity: readable on phones and tablets, with one table filter. */
-#modal.table-history-dialog{width:min(760px,96vw);max-width:96vw}
+/* Owner daily log: readable rows on tablets, stacked labels on phones. */
+#modal.table-history-dialog{width:min(1050px,96vw);max-width:96vw}
 .table-history-toolbar{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin:18px 0}
-.table-history-toolbar label{min-width:150px;flex:1;font-weight:700}
+.table-history-toolbar label{min-width:150px;max-width:300px;flex:1;font-weight:700}
 .table-history-toolbar select{width:100%;margin:8px 0 0;min-height:48px;font-size:17px}
 #tableHistorySummary{flex:2;min-width:180px;color:#c1d7e4;font-size:14px;line-height:1.6}
-#tableHistoryRows{display:grid;gap:12px}
-.table-history-event{border:1px solid #91b9cc;border-radius:12px;padding:16px;background:#163f56;color:#fff;overflow-wrap:anywhere}
-.table-history-event-head{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
-.table-history-event-head strong{font-size:17px;color:#aee3ff}
-.table-history-event-head time{font-size:15px;white-space:nowrap;color:#e5f4ff}
-.table-history-event h3{font-size:25px;margin:12px 0 6px;color:white}
-.table-history-event p{margin:6px 0;line-height:1.5}
-.table-history-meta{font-size:16px;font-weight:700}
-.table-history-change{font-size:16px;border-left:3px solid #5cc3f7;padding-left:10px}
-.table-history-event small{display:block;font-size:13px;color:#c5dce8;margin-top:10px}
+.table-log-scroll{overflow:auto;max-height:64vh;border:1px solid #749ab5;border-radius:10px}
+.table-log{width:100%;border-collapse:collapse;table-layout:fixed;background:#163f56;color:#fff;font-size:16px}
+.table-log th,.table-log td{padding:15px 12px;text-align:left;border-bottom:1px solid #567d98;vertical-align:top;overflow-wrap:anywhere}
+.table-log th{position:sticky;top:0;z-index:1;background:#25536f;color:#dff3ff;font-size:15px}
+.table-log th:nth-child(1){width:18%}.table-log th:nth-child(2){width:19%}.table-log th:nth-child(3){width:27%}.table-log th:nth-child(4){width:10%}.table-log th:nth-child(5){width:26%}
+.table-log td:nth-child(2),.table-log td:nth-child(4){font-size:18px;font-weight:700}
+.table-log tr:last-child td{border-bottom:0}.table-log small{display:block;color:#bed7e7;font-size:12px;margin-top:5px}
+.table-log-status{display:inline-block;background:#285e7d;border:1px solid #80b5d6;border-radius:7px;padding:5px 8px;font-size:14px;font-weight:700}
 .table-history-empty{font-size:16px;line-height:1.6;color:#d8e9f3;padding:15px 0}
-@media(max-width:480px){.table-history-event{padding:13px}.table-history-event-head{flex-wrap:wrap;gap:5px}.table-history-toolbar{gap:4px}#tableHistorySummary{margin:4px 0 8px}}
+@media(max-width:600px){.table-log,.table-log tbody,.table-log tr,.table-log td{display:block;width:100%;box-sizing:border-box}.table-log thead{display:none}.table-log tr{padding:10px 13px;border-bottom:2px solid #749ab5}.table-log td{display:grid;grid-template-columns:58px minmax(0,1fr);gap:5px 10px;padding:6px 0;border:0;font-size:16px}.table-log td::before{content:attr(data-label);font-size:13px;font-weight:700;color:#b5d7ec}.table-log td small{grid-column:2;margin:0}.table-log-status{justify-self:start}.table-history-toolbar{gap:4px}#tableHistorySummary{margin:4px 0 8px}}
