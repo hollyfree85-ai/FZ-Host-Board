@@ -59,3 +59,15 @@ test('A stale seat or move cannot overwrite a held table',()=>{let s=seat(setup(
 
 
 test('Voice Ready/Clean cannot clear a party seated after an empty-table snapshot',()=>{const stale=cmd('STATUS',{table:'B2',expectedPartyId:'',status:'ready'});const s=seat(setup());assert.throws(()=>C.reduce(s,stale,config),/Party changed/);const id=C.partyFor(s,'B2').id;const n=C.reduce(s,cmd('STATUS',{table:'B2',expectedPartyId:id,partyId:id,partyVersion:1,status:'cleaning'}),config);assert.equal(n.tables.B2.status,'cleaning');assert.equal(n.tables.B3.status,'cleaning');assert.equal(n.shifts.PM.rows[0].entries.length,1);});
+
+
+test('recommendation acceptance rejects stale revisions and formation edits, while receipt retries remain idempotent',()=>{
+ const s=setup(),recommendation={revision:s.revision,formation:'test',formationKey:JSON.stringify(config.formations.test||{}),assignments:{B2:'aj',B3:'aj'}},accept=cmd('SEAT',{table:'B2',secondary:['B3'],people:10,rowId:'aj',recommendation});
+ const changed=C.copy(s);changed.revision++;assert.throws(()=>C.reduce(changed,accept,config),/Floor or rotation changed/);const before=JSON.stringify(changed);assert.equal(changed.tables.B2.status,'ready');assert.equal(JSON.stringify(changed),before);
+ const changedConfig={...config,formations:{...config.formations,test:{'4':['B2','B3']}}};assert.throws(()=>C.reduce(s,accept,changedConfig),/Floor or rotation changed/);
+ const moved=C.copy(s);moved.shifts.PM.assignments.B3='other';assert.throws(()=>C.reduce(moved,accept,config),/assignment or availability changed/);
+ const accepted=C.reduce(s,accept,config);assert.equal(accepted.shifts.PM.rows[0].entries.length,1);assert.deepEqual(C.reduce(accepted,accept,config),accepted);
+});
+test('the same reservation cannot create a second seated party even on different tables',()=>{
+ let s=setup();s=C.reduce(s,cmd('SEAT',{table:'B2',secondary:[],people:3,rowId:'aj',reservationId:'res_test'}),config);assert.throws(()=>C.reduce(s,cmd('SEAT',{table:'B3',secondary:[],people:3,rowId:'aj',reservationId:'res_test'}),config),/already seated/);
+});

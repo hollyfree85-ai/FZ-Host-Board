@@ -9,7 +9,7 @@ function alerts(records,now){const result=[];for(const[id,r]of Object.entries(re
  if(r.guestReply?.revision===revision(r))for(const[field,title]of [['confirmedAt','GUEST CONFIRMED'],['arrivedAt','PARTY ARRIVED · READY TO BE SEATED']]){const value=r.guestReply[field];if(value&&now>=value&&now-value<2*3600000&&Math.abs(now-at)<2*3600000)result.push({id,key:id+'_'+field+'_'+value,title,name:r.name,people:r.people,time:r.time,detail:field==='arrivedAt'?'The guest replied HERE. Check table availability.':'The guest replied CONFIRM.'});}
 }return result;}
 function candidates(state,config,reservation,id,shift,records={},now=Date.now()){
- if(!active(reservation)||!state||reservation.date!==state.day||!Number.isInteger(reservation.people))return [];
+ if(!active(reservation)||!state||reservation.date!==state.day||!Number.isInteger(reservation.people)||Object.values(state.parties||{}).some(p=>p.reservationId===id))return [];
  // Use the same confirmed capacities, approved combinations and formation rules as
  // Floor PARTY. Unknown capacity is never a usable candidate for a large party.
  const otherReservations=Object.fromEntries(Object.entries(records||{}).filter(([other])=>other!==id));

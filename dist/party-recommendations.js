@@ -8,6 +8,7 @@ singles('B2 B3',4,6);singles('L5 L6 R5 R6 R7',6,7);singles('H2 H3 H4 C2 C3 C4',6
 for(let n=1;n<=12;n++)capacities['Bar '+n]=Object.freeze({min:1,max:1});
 Object.freeze(capacities);
 function capacityFor(id){const text=String(id||'').trim(),bar=text.match(/^bar\s*(\d+)$/i);return capacities[bar?'Bar '+Number(bar[1]):text.toUpperCase()]||null;}
+const booths=Object.freeze('A1 A2 A3 A4 H2 H3 H4 F1 F2 F3 F4 F5 F6'.split(' '));
 // Only explicitly approved combinations. C2+C3 uses the lower supplied limit (12).
 // Full C-row and D combinations await confirmed capacities; do not generate them.
 const groups=[
@@ -57,7 +58,7 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  const available=id=>knownTables.has(id)&&formedTables.has(id)&&state.tables?.[id]?.status==='ready'&&!state.tables[id].partyId&&!held.has(id);
  const joined=prefix=>Object.values(state.parties||{}).some(p=>C.members(p).filter(id=>id.startsWith(prefix)).length>1);
  const joinedC=joined('C'),joinedD=joined('D'),loads=new Map(rows.map(r=>[r.id,workload(state,shift,r,now)]));
- const options=[...C.list(config.tables).flatMap(t=>{const capacity=capacityFor(t.id);return capacity?[{tables:[t.id],...capacity}]:[];}),...groups];
+ const options=[...C.list(config.tables).flatMap(t=>{const capacity=capacityFor(t.id);return capacity?[{tables:[t.id],...capacity}]:[];}),...(people<5?[]:groups)];
  for(const option of options){
   const ids=option.tables;if(option.max<people||!ids.every(available))continue;
   if(ids.filter(id=>/^C/.test(id)).length>1&&joinedD||ids.filter(id=>/^D/.test(id)).length>1&&joinedC)continue;
@@ -67,14 +68,14 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
   const uniqueSections=[...new Set(sections)],crossSection=uniqueSections.length>1||uniqueRows.length>1;
   if(crossSection){result.crossSectionCount++;if(!allowCrossSection)continue;}
   const row=uniqueRows[0],load=loads.get(row.id);
-  result.candidates.push({tables:[...ids],min:option.min,max:option.max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
+  result.candidates.push({tables:[...ids],booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',min:option.min,max:option.max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
  }
- // Preserve the exact Board queue, including section order at equal turn counts.
- // Area and workload must never jump ahead of an earlier eligible server.
- // Always prefer a fitting single table before considering combinations.
- result.candidates.sort((a,b)=>Number(a.crossSection)-Number(b.crossSection)||a.rotation-b.rotation||Number(a.tables.length>1)-Number(b.tables.length>1)||(people>=6?a.area-b.area:a.tables.length-b.tables.length)||(a.max-people)-(b.max-people)||a.tables.length-b.tables.length||a.tables.join().localeCompare(b.tables.join(),undefined,{numeric:true}));
+ // 1–4 guests follow the exact Board queue. Parties of 5+ keep the nearest
+ // turn count, then the owner's area order and actual workload before section order.
+ const fit=(a,b)=>Number(a.tables.length>1)-Number(b.tables.length>1)||(a.max-people)-(b.max-people)||a.tables.length-b.tables.length||a.tables.join().localeCompare(b.tables.join(),undefined,{numeric:true});
+ result.candidates.sort((a,b)=>Number(a.crossSection)-Number(b.crossSection)||(people<5?a.rotation-b.rotation||Number(b.booth)-Number(a.booth):a.turns-b.turns||a.area-b.area||a.recentGuests-b.recentGuests||a.activeGuests-b.activeGuests||a.activeTables-b.activeTables||a.rotation-b.rotation)||fit(a,b));
  if(!result.candidates.length)result.reason='No suitable READY tables in one section for this party.';
  return result;
 }
-return {capacities,capacityFor,groups,recommend,sectionFor};
+return {capacities,capacityFor,booths,groups,recommend,sectionFor};
 });

@@ -253,3 +253,5 @@ nav{grid-template-columns:repeat(4,minmax(0,1fr))}nav button{min-width:0;padding
 .floor-controls>.floor-shortcuts button{max-width:100%;white-space:normal}
 .floor-party-button{grid-column:2;width:172px;height:64px;min-height:64px;padding:12px 20px;border:2px solid #8bcfff;border-radius:14px;background:linear-gradient(160deg,#218ee6,#1263b0);color:#fff;font-size:26px;font-weight:900;line-height:1.1;letter-spacing:1px;box-shadow:0 4px 10px #17558a40}
 @media(max-width:650px){.floor-controls{grid-template-columns:minmax(0,1fr) 140px;padding-left:10px;padding-right:10px;column-gap:10px}.floor-party-button{width:140px;height:64px;min-height:64px;font-size:24px}.floor-controls>.floor-shortcuts{gap:6px}}
+
+.party-accept{display:block;width:100%;min-height:54px;margin-top:16px;font-size:20px;font-weight:900;letter-spacing:.5px}.party-error{padding:14px;border:1px solid #ffb5a8;border-radius:10px;background:#5a2931;color:#ffe5df;line-height:1.5}
