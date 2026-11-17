@@ -152,6 +152,38 @@ test('ACCEPT combines all recommended tables in one Board entry and confirms dis
  }finally{p.dom.window.close();}
 });
 
+test('passed Angela turn syncs to another tablet, returns after ten minutes, and clears after ACCEPT',async()=>{
+ const shared=fixture(),live=shared.data.app.live;
+ shared.data.app.config.formations.test={'1':['A1','A2','H2'],'2':['L5','L6']};
+ live.shifts.PM={formation:'test',rows:[{id:'angela',server:'Angela Grizzad',section:'1',beeper:'4',entries:[{id:'angela_last',kind:'party',primary:'A2',people:3,at:NOW-60000}]},{id:'other',server:'Breanna',section:'2',beeper:'3',entries:[{id:'old_skip',kind:'manual',at:NOW-3600000}]}],assignments:{A1:'angela',A2:'angela',H2:'angela',L5:'other',L6:'other'}};
+ const a=await page(shared),b=await page(shared);
+ try{
+  for(const p of [a,b])p.w.document.querySelector('[data-entry-role="Front Host"]').click();
+  await a.w.FZHostApp.send('SEAT',{table:'L5',rowId:'other',people:3,secondary:[]});
+  await waitFor(()=>b.w.FZHostApp.state.shifts.PM.deferredTurns?.angela,'held turn shared');
+  const d=b.w.document;b.w.FZHostApp.operation('party');d.getElementById('partyPeople').value='3';d.getElementById('partySearchForm').dispatchEvent(new b.w.Event('submit',{bubbles:true,cancelable:true}));
+  assert.match(d.getElementById('partyResults').textContent,/TURN HELD.*Angela Grizzad/);assert(!d.querySelector('[data-party-tables="A1"]'));
+  b.w.FZHostApp.connection.now=()=>NOW+540000;d.getElementById('partyRefresh').click();
+  assert.equal(d.querySelector('.party-best').dataset.partyTables,'A1');assert.match(d.querySelector('.party-best').textContent,/RETURN TURN/);
+  d.querySelector('.party-best [data-party-accept]').click();await waitFor(()=>a.w.FZHostApp.state.tables.A1.status==='seated'&&!b.w.FZHostApp.connection.busy,'return turn accepted');
+  assert.equal(a.w.FZHostApp.state.parties[a.w.FZHostApp.state.tables.A1.partyId].rowId,'angela');assert(!a.w.FZHostApp.state.shifts.PM.deferredTurns.angela);
+  assert.equal(shared.commits.filter(c=>c.path==='app/live').length,2);assert.deepEqual(a.errors,[]);assert.deepEqual(b.errors,[]);
+ }finally{a.dom.window.close();b.dom.window.close();}
+});
+
+test('an already-open PARTY dialog restores no-ready priority when another tablet readies a fitting table',async()=>{
+ const shared=fixture(),live=shared.data.app.live;
+ shared.data.app.config.formations.test={'1':['A1'],'2':['L5','L6']};
+ live.shifts.PM={formation:'test',rows:[{id:'angela',server:'Angela',section:'1',beeper:'4',entries:[]},{id:'other',server:'Breanna',section:'2',beeper:'3',entries:[]}],assignments:{A1:'angela',L5:'other',L6:'other'}};live.tables.A1={status:'cleaning'};
+ const a=await page(shared),b=await page(shared);
+ try{
+  await a.w.FZHostApp.send('SEAT',{table:'L5',rowId:'other',people:3,secondary:[]});await waitFor(()=>b.w.FZHostApp.state.shifts.PM.deferredTurns?.angela,'no-ready turn shared');
+  const d=b.w.document;b.w.FZHostApp.operation('party');d.getElementById('partyPeople').value='3';d.getElementById('partySearchForm').dispatchEvent(new b.w.Event('submit',{bubbles:true,cancelable:true}));assert(!d.querySelector('[data-party-tables="A1"]'));
+  await a.w.FZHostApp.send('STATUS',{table:'A1',status:'ready'});await waitFor(()=>d.querySelector('.party-best')?.dataset.partyTables==='A1','live return priority');
+  assert.match(d.querySelector('.party-best').textContent,/RETURN TURN/);assert.match(d.querySelector('.party-best').textContent,/Angela/);assert.equal(shared.commits.filter(c=>c.path==='app/live').length,2);assert.deepEqual(a.errors,[]);assert.deepEqual(b.errors,[]);
+ }finally{a.dom.window.close();b.dom.window.close();}
+});
+
 test('two tablets accepting the same recommendation cannot double seat or duplicate a Board turn',async()=>{
  const shared=fixture();shared.data.app.config.formations.test={'2':['B2','B3']};const a=await page(shared),b=await page(shared);shared.setDelay(100);
  try{for(const p of [a,b]){const d=p.w.document;d.querySelector('[data-entry-role="Front Host"]').click();p.w.FZHostApp.operation('party');d.getElementById('partyPeople').value='3';d.getElementById('partySearchForm').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));}a.w.document.querySelector('.party-best [data-party-accept]').click();b.w.document.querySelector('.party-best [data-party-accept]').click();await waitFor(()=>a.w.FZHostApp.state.tables.B2.status==='seated'&&!a.w.FZHostApp.connection.busy&&!b.w.FZHostApp.connection.busy,'one accepted seat');assert.equal(shared.commits.filter(c=>c.path==='app/live').length,1);assert.equal(a.w.FZHostApp.state.shifts.PM.rows[0].entries.length,1);assert.equal(Object.keys(a.w.FZHostApp.state.parties).length,1);assert.deepEqual(a.errors,[]);assert.deepEqual(b.errors,[]);
