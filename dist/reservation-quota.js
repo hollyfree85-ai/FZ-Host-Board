@@ -22,8 +22,9 @@ function assess({records={},live,config,date,time,people,excludeId='',now=Date.n
  const today=date===C.dayAt(now),shift=time<'15:00'?'AM':'PM',section=sections(live,config,shift,!today);
  if(!section||!Array.isArray(config?.tables)||today&&live?.day!==date)return {...base,reason:'floor',message:'Table availability is not ready yet. Please contact our host team or try again shortly.'};
  const known=new Set(config.tables.map(t=>t.id)),free=new Set([...section.keys()].filter(id=>known.has(id)&&P.capacityFor(id)&&(!today||live.tables?.[id]?.status==='ready'&&!live.tables[id].partyId)));
- const availableSeats=[...free].reduce((n,id)=>n+P.capacityFor(id).max,0),blockedC=today&&Object.values(live.parties||{}).some(p=>C.members(p).filter(id=>/^D/.test(id)).length>1),blockedD=today&&Object.values(live.parties||{}).some(p=>C.members(p).filter(id=>/^C/.test(id)).length>1);
- const options=[...free].map(id=>({tables:[id],max:P.capacityFor(id).max})).concat(P.groups).filter(o=>o.tables.every(id=>free.has(id))&&new Set(o.tables.map(id=>section.get(id))).size===1&&!(blockedC&&o.tables.filter(id=>/^C/.test(id)).length>1)&&!(blockedD&&o.tables.filter(id=>/^D/.test(id)).length>1));
+ const blockedC=today&&Object.values(live.parties||{}).some(p=>C.members(p).filter(id=>/^D/.test(id)).length>1),blockedD=today&&Object.values(live.parties||{}).some(p=>C.members(p).filter(id=>/^C/.test(id)).length>1);
+ const options=[...free].map(id=>({tables:[id],max:P.capacityFor(id).max})).concat(P.groups).filter(o=>o.tables.every(id=>free.has(id))&&!(blockedC&&o.tables.filter(id=>/^C/.test(id)).length>1)&&!(blockedD&&o.tables.filter(id=>/^D/.test(id)).length>1)).map(o=>({...o,crossSection:new Set(o.tables.map(id=>section.get(id))).size>1}));
+ const availableSeats=P.totalCapacity(free,options);
  const demands=[];
  for(const[id,r]of Object.entries(records)){
   if(id===excludeId||released(r)||r.date!==date)continue;
@@ -37,7 +38,7 @@ function assess({records={},live,config,date,time,people,excludeId='',now=Date.n
  demands.push({people,pinned:[]});
  const full={...base,availableSeats,reason:'tables',message:'Reservations are temporarily full: no suitable READY tables are available for this party. Please choose another time or contact our host team.'};
  if(demands.reduce((n,d)=>n+d.people,0)>availableSeats)return full;
- const choices=demands.map(d=>options.filter(o=>o.max>=d.people&&(!d.pinned.length||d.pinned.length===o.tables.length&&d.pinned.every(t=>o.tables.includes(t)))).sort((a,b)=>a.max-b.max||a.tables.length-b.tables.length));
+ const choices=demands.map(d=>options.filter(o=>o.max>=d.people&&(!o.crossSection||P.canCrossSections(d.people))&&(!d.pinned.length||d.pinned.length===o.tables.length&&d.pinned.every(t=>o.tables.includes(t)))).sort((a,b)=>a.max-b.max||a.tables.length-b.tables.length));
  if(choices.some(x=>!x.length))return full;
  choices.sort((a,b)=>a.length-b.length);let visits=0;const memo=new Set();
  function fit(i,used){if(i===choices.length)return true;if(++visits>30000)return false;const key=i+':'+[...used].sort().join(',');if(memo.has(key))return false;for(const o of choices[i])if(o.tables.every(id=>!used.has(id))&&fit(i+1,new Set([...used,...o.tables])))return true;memo.add(key);return false;}

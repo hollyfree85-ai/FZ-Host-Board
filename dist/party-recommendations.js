@@ -14,12 +14,24 @@ const booths=Object.freeze('A1 A2 A3 A4 H2 H3 H4 F1 F2 F3 F4 F5 F6'.split(' '));
 const groups=[
  ['B1 B2',10],['B2 B3',10],['B1 B2 B3',15],
  ['L1 L2',8,10],['L2 L3',8],['L3 L4',8],['R1 R2',8],['R2 R3',8],['R3 R4',8],
- ['A4 L5',10,11],['L5 L6',12,13],['A4 L5 L6',20],['R4 R5',10],
+ ['A4 L5',10,11],['L5 L6',12,14],['A4 L5 L6',20],['R4 R5',10],
+ ['L3 L4 L5 L6',22,24],['L1 L2 L3 L4 L5 L6',28,30],['A4 L1 L2 L3 L4 L5 L6',35,36],
  ['R5 R6',12,14],['R6 R7',12,13],['R4 R5 R6',20],['R3 R4 R5',15],
- ['M1 M2',10],['M1 H3',10],['M2 H4',10],['C1 C2',8,10],['C2 C3',12],['C3 C4',10],
- ['E1 F1',8],['E2 E3',8],['E3 E4',8,10],['E4 E5',8,10],['E2 E3 E4',12]
+ ['R5 R6 R7',21],['R3 R4 R5 R6 R7',28,29],['R1 R2 R3 R4 R5 R6 R7',39,40],
+ ['M1 M2',10],['M1 H3',10],['M2 H4',10],['M1 M2 H1 H2 H3 H4',30,34],
+ ['C1 C2',8,10],['C2 C3',12],['C3 C4',10],['C2 C3 C4',18],
+ ['E1 F1',8],['E2 E3',8],['E3 E4',8,10],['E4 E5',8,10],['E2 E3 E4',18]
 ].map(([ids,min,max=min])=>Object.freeze({tables:Object.freeze(ids.split(' ')),min,max}));
 Object.freeze(groups);
+const canCrossSections=people=>Number.isInteger(people)&&people>12;
+// Approved combinations can seat more than their separate tables. Count the
+// greatest disjoint capacity increase, never two overlapping combinations.
+function totalCapacity(ids,options=groups){
+ const tables=new Set(ids),base=[...tables].reduce((n,id)=>n+(capacityFor(id)?.max||0),0);
+ const bonuses=options.filter(o=>o.tables.every(id=>tables.has(id))).map(o=>({tables:o.tables,extra:o.max-o.tables.reduce((n,id)=>n+(capacityFor(id)?.max||0),0)})).filter(o=>o.extra>0);
+ function best(i,used){if(i===bonuses.length)return 0;const o=bonuses[i],skip=best(i+1,used);return o.tables.some(id=>used.has(id))?skip:Math.max(skip,o.extra+best(i+1,new Set([...used,...o.tables])));}
+ return base+best(0,new Set());
+}
 const serverKey=name=>String(name||'').trim().toLowerCase().replace(/\s+/g,' ');
 function sectionFor(board,config,id,row){
  const sections=String(row.section||'').split(/\s*\/\s*/).filter(Boolean);
@@ -43,7 +55,7 @@ function areaRank(tables){
  if(tables.some(id=>/^[HM]/.test(id)))return 4;
  return 5;
 }
-function recommend({state,config,shift='PM',people,records={},now=Date.now(),allowCrossSection=false}){
+function recommend({state,config,shift='PM',people,records={},now=Date.now(),allowCrossSection=canCrossSections(people)}){
  const result={candidates:[],crossSectionCount:0,recovering:[],reason:''};
  if(!Number.isInteger(people)||people<1||people>120)return {...result,reason:'Enter a whole number from 1 to 120 guests.'};
  if(state?.day!==C.dayAt(now))return {...result,reason:'Wait for the current service day to load before searching.'};
@@ -67,7 +79,7 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
   const sections=ids.map((id,i)=>sectionFor(board,config,id,assigned[i]));if(sections.some(s=>!s))continue;
   const uniqueRows=[...new Map(assigned.map(r=>[r.id,r])).values()].sort((a,b)=>rotationIndex.get(a.id)-rotationIndex.get(b.id));
   const uniqueSections=[...new Set(sections)],crossSection=uniqueSections.length>1||uniqueRows.length>1;
-  if(crossSection){result.crossSectionCount++;if(!allowCrossSection)continue;}
+  if(crossSection){if(!canCrossSections(people))continue;result.crossSectionCount++;if(!allowCrossSection)continue;}
   const row=uniqueRows[0],load=loads.get(row.id),returnTurn=deferred.get(row.id);
   result.candidates.push({tables:[...ids],booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',min:option.min,max:option.max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),returnPriority:!!returnTurn?.eligible,returnAt:returnTurn?.at||0,returnReason:returnTurn?.reason||'',...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
  }
@@ -75,8 +87,8 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  // turn count, then the owner's area order and actual workload before section order.
  const fit=(a,b)=>Number(a.tables.length>1)-Number(b.tables.length>1)||(a.max-people)-(b.max-people)||a.tables.length-b.tables.length||a.tables.join().localeCompare(b.tables.join(),undefined,{numeric:true});
  result.candidates.sort((a,b)=>Number(a.crossSection)-Number(b.crossSection)||Number(b.returnPriority)-Number(a.returnPriority)||(a.returnPriority&&b.returnPriority?a.returnAt-b.returnAt:0)||(people<5?a.rotation-b.rotation||Number(b.booth)-Number(a.booth):a.turns-b.turns||a.area-b.area||a.recentGuests-b.recentGuests||a.activeGuests-b.activeGuests||a.activeTables-b.activeTables||a.rotation-b.rotation)||fit(a,b));
- if(!result.candidates.length)result.reason='No suitable READY tables in one section for this party.';
+ if(!result.candidates.length)result.reason=canCrossSections(people)&&allowCrossSection?'No suitable READY tables or approved combinations for this party.':'No suitable READY tables in one section for this party.';
  return result;
 }
-return {capacities,capacityFor,booths,groups,recommend,sectionFor};
+return {capacities,capacityFor,booths,groups,canCrossSections,totalCapacity,recommend,sectionFor};
 });

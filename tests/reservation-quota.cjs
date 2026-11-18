@@ -21,8 +21,8 @@ test('existing reservations consume disjoint fitting tables and assigned holds c
  f.records.b={date,time:'18:00',people:7};assert.equal(Q.assess(f).available,false);f.records.a.status='completed';assert.equal(Q.assess(f).available,true);
  f.records.b.table='L6';assert.equal(Q.assess({...f,people:12}).available,false);
 });
-test('approved groups must stay in the same formation section and bar stools never form a party',()=>{
- const f=fixture(['L5','L6']);assert.equal(Q.assess({...f,people:13}).available,true);f.config.formations.test={'4':['L5'],'5':['L6']};f.live.shifts.PM.assignments.L6='r';assert.equal(Q.assess({...f,people:13}).available,false);
+test('approved cross-section groups start above twelve and bar stools never form a party',()=>{
+ const f=fixture(['L5','L6']);assert.equal(Q.assess({...f,people:13}).available,true);f.config.formations.test={'4':['L5'],'5':['L6']};f.live.shifts.PM.assignments.L6='r';assert.equal(Q.assess({...f,people:13}).available,true);assert.equal(Q.assess({...f,people:12}).available,false);
  assert.equal(Q.assess(fixture(['Bar 1','Bar 2','Bar 3','Bar 4','Bar 5','Bar 6'])).available,false);
 });
 test('future dates use formation capacity, today uses READY, and a linked seated reservation is not counted twice physically',()=>{
@@ -40,4 +40,20 @@ test('atomic linked party completion updates quota once, preserves rotation and 
  assert.throws(()=>Q.reduceBoard(s,{id:'del',type:'DELETE',day:date,shift:'PM',at:now+1,table:'L5',partyId:'seat'},now+1),/three/);
  const cmd={id:'del',type:'DELETE',day:date,shift:'PM',at:now+1,table:'L5',partyId:'seat',releaseAcknowledged:3};s=Q.reduceBoard(s,cmd,now+1);assert.equal(s.reservations.a.status,'completed');assert.equal(Q.usage(s.reservations,date,'17:00').used,0);assert.deepEqual(Q.reduceBoard(s,cmd,now+2),s);
  s=Q.reduceBoard(s,{id:'undo',type:'UNDO',day:date,shift:'PM',at:now+3,undoId:'del'},now+3);assert.equal(s.reservations.a.status,'seated');assert.equal(Q.usage(s.reservations,date,'17:00').used,6);assert.equal(s.live.tables.L5.status,'seated');
+});
+
+test('large approved capacity overrides standalone sums without bypassing READY or quota',()=>{
+ for(const [ids,people]of [['L3 L4 L5 L6',24],['L1 L2 L3 L4 L5 L6',30],['A4 L1 L2 L3 L4 L5 L6',36],['R5 R6 R7',21],['R3 R4 R5 R6 R7',29],['R1 R2 R3 R4 R5 R6 R7',40],['C2 C3 C4',18],['E2 E3 E4',18],['M1 M2 H1 H2 H3 H4',34],['B1 B2 B3',15]]){
+  const f=fixture(ids.split(' '));f.people=people;assert.equal(Q.assess(f).available,true,ids+' capacity');assert.equal(Q.assess({...f,people:people+1}).available,false,ids+' above capacity');
+  f.live.tables[ids.split(' ')[0]].status='cleaning';assert.equal(Q.assess(f).available,false,ids+' READY');
+ }
+ const f=fixture('R1 R2 R3 R4 R5 R6 R7'.split(' '));f.people=40;f.records.other={date,time:'17:00',people:11,status:'seated'};assert.equal(Q.assess(f).reason,'quota');
+});
+test('cross-section permission is checked per existing and new party and never shares a table',()=>{
+ const f=fixture(['L5','L6','R5','R6']);f.config.formations.test={'4':['L5','R5'],'5':['L6','R6']};f.live.shifts.PM.assignments={L5:'l',R5:'l',L6:'r',R6:'r'};
+ f.records.old={date,time:'17:00',people:13,table:'L5',secondary:['L6']};
+ assert.equal(Q.assess({...f,people:13}).available,true);assert.equal(Q.assess({...f,people:12}).available,false);
+ f.records.old.people=12;assert.equal(Q.assess({...f,people:13}).available,false);
+ f.records.old.people=13;f.records.old.secondary=['R6'];assert.equal(Q.assess({...f,people:13}).available,false,'unapproved pinned combination');
+ const overlap=fixture(['E2','E3','E4']);overlap.records.old={date,time:'17:00',people:6};assert.equal(Q.assess({...overlap,people:12}).available,false,'18 seats cannot promise two parties using the same tables');
 });

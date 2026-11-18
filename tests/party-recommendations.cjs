@@ -31,9 +31,26 @@ test('only assigned active servers in the current formation with enough Board ro
  f.state.shifts.PM.assignments.L2='1';f.state.shifts.PM.rows[0].entries=Array.from({length:59},()=>({kind:'manual'}));assert(!tableSets(P.recommend(f)).includes('L1+L2'));
  delete f.config.formations.test;assert.match(P.recommend(f).reason,/formation/);
 });
-test('cross-section groups are hidden by default even when one server covers multiple sections',()=>{
- const f=fixture({'1':['L1'],'2':['L2']});f.state.shifts.PM.rows=[{id:'both',server:'Both',section:'1 / 2',entries:[]}];f.state.shifts.PM.assignments={L1:'both',L2:'both'};
- assert.equal(P.recommend(f).candidates.length,0);assert.equal(P.recommend(f).crossSectionCount,1);f.allowCrossSection=true;assert.equal(P.recommend(f).candidates[0].crossSection,true);
+test('cross-section combinations start at thirteen guests and respect merged physical sections',()=>{
+ const f=fixture({'1':['L5'],'2':['L6']});f.state.shifts.PM.rows=[{id:'both',server:'Both',section:'1 / 2',entries:[]}];f.state.shifts.PM.assignments={L5:'both',L6:'both'};
+ for(const people of [8,12])for(const allowCrossSection of [false,true]){const r=P.recommend({...f,people,allowCrossSection});assert.equal(r.candidates.length,0);assert.equal(r.crossSectionCount,0);}
+ let r=P.recommend({...f,people:13});assert.equal(r.candidates.length,1);assert.equal(r.candidates[0].crossSection,true);assert.equal(r.candidates[0].section,'1 / 2');
+ r=P.recommend({...f,people:13,allowCrossSection:false});assert.equal(r.candidates.length,0);assert.equal(r.crossSectionCount,1);
+});
+test('large combinations require every READY member and retain all participating servers',()=>{
+ const f=fixture({'4':['L3','L4','L5','L6'],'5':['L1','L2'],'2':['A4']});f.people=36;
+ let r=P.recommend(f);assert.equal(r.candidates.length,1);assert.equal(r.candidates[0].max,36);assert.equal(r.candidates[0].servers.length,3);
+ for(const id of ['A4','L1','L2','L3','L4','L5','L6'])for(const status of ['seated','cleaning','reserved']){f.state.tables[id].status=status;assert.equal(P.recommend(f).candidates.length,0,id+' '+status);f.state.tables[id].status='ready';}
+ f.state.shifts.PM.rows.find(r=>r.id==='5').cut=true;assert.equal(P.recommend(f).candidates.length,0);
+});
+test('owner large-party maxima and total capacity do not sum overlapping combination bonuses',()=>{
+ const sizes={'L5+L6':14,'L3+L4+L5+L6':24,'L1+L2+L3+L4+L5+L6':30,'A4+L1+L2+L3+L4+L5+L6':36,'R5+R6+R7':21,'R3+R4+R5+R6+R7':29,'R1+R2+R3+R4+R5+R6+R7':40,'C2+C3+C4':18,'E2+E3+E4':18,'M1+M2+H1+H2+H3+H4':34,'B1+B2+B3':15};
+ for(const [ids,max]of Object.entries(sizes))assert.equal(P.groups.find(g=>g.tables.join('+')===ids)?.max,max,ids);
+ assert.equal(P.totalCapacity('A4 L1 L2 L3 L4 L5 L6'.split(' ')),38);
+ assert.equal(P.totalCapacity('R1 R2 R3 R4 R5 R6 R7'.split(' ')),40);
+ assert.equal(P.totalCapacity('E2 E3 E4'.split(' ')),18);
+ assert.equal(P.totalCapacity('E2 E3 E4 R1 R2 R3 R4 R5 R6 R7'.split(' ')),58);
+ assert.equal(P.totalCapacity('L1 L2 L3 L4 L5'.split(' ')),25);
 });
 test('changing formation and breaking section changes eligibility immediately',()=>{
  const f=fixture({'1':['L1','L2'],'2':['L3']});assert(tableSets(P.recommend(f)).includes('L1+L2'));f.state.shifts.PM.assignments.L2='2';assert(!tableSets(P.recommend(f)).includes('L1+L2'));assert(tableSets(P.recommend(f)).includes('L2+L3'));
@@ -89,4 +106,11 @@ test('under-five groups prefer next server booths, then that server regular tabl
 test('booth preference applies only under five and never recommends an undersized booth',()=>{
  const f=fixture({'2':['H2','L5']});f.people=4;assert.equal(P.recommend(f).candidates[0].tables[0],'H2');f.people=5;assert.equal(P.recommend(f).candidates[0].tables[0],'L5');
  const g=fixture({'2':['A1','B2']});g.people=5;assert.equal(P.recommend(g).candidates[0].tables[0],'B2');assert.equal(P.booths.length,13);
+});
+
+test('twenty guests prefer the fitting Section 4 L combination before a cross-section A4 combination',()=>{
+ const f=fixture({'4':['L1','L2','L3','L4','L5','L6'],'2':['A4']});
+ const twenty=P.recommend({...f,people:20}).candidates;assert.deepEqual(twenty[0].tables,['L3','L4','L5','L6']);assert.equal(twenty[0].section,'4');assert.equal(twenty[0].crossSection,false);
+ assert.deepEqual(P.recommend({...f,people:30}).candidates[0].tables,['L1','L2','L3','L4','L5','L6']);
+ assert.deepEqual(P.recommend({...f,people:36}).candidates[0].tables,['A4','L1','L2','L3','L4','L5','L6']);
 });

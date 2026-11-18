@@ -162,13 +162,24 @@ test('Floor PARTY searches live formation, shows English recommendations and nev
  }finally{p.dom.window.close();}
 });
 
-test('Party suggestions refresh on reservation holds and hide cross-section combinations until requested',async()=>{
+test('Party automatically includes cross-section groups above twelve and refreshes reservation holds',async()=>{
  const shared=fixture();shared.data.app.config.formations.test={'2':['B1','B2'],'BAR':['B3']};shared.data.app.live.shifts.PM.assignments={B1:'aj',B2:'aj',B3:'bar'};
- const p=await page(shared);try{const d=p.w.document;p.w.FZHostApp.operation('party');d.getElementById('partySearchForm').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));assert(d.querySelector('[data-party-tables="B1|B2"]'));assert(!d.querySelector('[data-party-tables="B2|B3"]'));d.getElementById('partyCrossSection').click();assert(d.querySelector('[data-party-tables="B2|B3"]'));assert.match(d.getElementById('partyResults').textContent,/Coordinate before seating/);
- await p.w.FZHostApp.connection.ref.child('reservations').child('hold').set({name:'Fixture Guest',people:10,date:p.w.FZHostApp.state.day,time:'19:00',table:'B2'});await waitFor(()=>!d.querySelector('[data-party-tables="B1|B2"]'),'reservation removes recommendation');assert.equal(d.querySelectorAll('.party-option').length,0);assert.equal(shared.commits.filter(c=>c.path==='app/live').length,0);assert.deepEqual(p.errors,[]);
- }finally{p.dom.window.close();}
+ const p=await page(shared);try{const d=p.w.document;p.w.FZHostApp.operation('party');d.getElementById('partyPeople').value='10';d.getElementById('partySearchForm').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));assert(d.querySelector('[data-party-tables="B1|B2"]'));assert(!d.querySelector('[data-party-tables="B2|B3"]'));assert(!d.getElementById('partyCrossSection'));
+ d.getElementById('partyPeople').value='15';d.getElementById('partySearchForm').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));assert(d.querySelector('[data-party-tables="B1|B2|B3"]'));assert.match(d.getElementById('partyResults').textContent,/Coordinate before seating/);d.getElementById('partyCrossSection').click();assert(!d.querySelector('.party-option'));d.getElementById('partyCrossSection').click();assert(d.querySelector('.party-option'));
+ await p.w.FZHostApp.connection.ref.child('reservations').child('hold').set({name:'Fixture Guest',people:10,date:p.w.FZHostApp.state.day,time:'19:00',table:'B2'});await waitFor(()=>!d.querySelector('.party-option'),'reservation removes recommendation');assert.equal(shared.commits.filter(c=>c.path==='app/live').length,0);assert.deepEqual(p.errors,[]);
+ }finally{await pause(40);p.dom.window.close();}
 });
-
+test('36-guest cross-section reservation ACCEPT saves all seven tables and quota in one atomic Board operation',async()=>{
+ const shared=fixture(),cfg=shared.data.app.config,live=shared.data.app.live,ids=['A4','L1','L2','L3','L4','L5','L6'];
+ cfg.formations.test={'4':['L3','L4','L5','L6'],'5':['L1','L2'],'2':['A4']};
+ live.shifts.PM={formation:'test',rows:[{id:'lead',server:'Lead Server',section:'4',beeper:'4',entries:[]},{id:'other',server:'Other Server',section:'5',beeper:'5',entries:[]},{id:'booth',server:'Booth Server',section:'2',beeper:'2',entries:[]}],assignments:Object.fromEntries(ids.map(id=>[id,id==='A4'?'booth':['L1','L2'].includes(id)?'other':'lead']))};
+ shared.data.app.reservations={large:{name:'Large Party',people:36,date:live.day,time:'18:00',status:'scheduled'}};
+ const p=await page(shared);try{const d=p.w.document;d.querySelector('[data-entry-role="Front Host"]').click();p.w.FZHostApp.operation('reservations');d.querySelector('[data-res-details="large"]').click();assert.match(d.querySelector('.reservation-candidates').textContent,/35–36 seats/);assert.match(d.querySelector('.reservation-candidates').textContent,/CROSS-SECTION/);
+ const accept=d.querySelector('[data-res-accept]');assert(accept);accept.click();await waitFor(()=>shared.data.app.reservations.large.status==='seated'&&!p.w.FZHostApp.connection.busy,'atomic large seating');
+ const partyId=p.w.FZHostApp.state.tables.A4.partyId;assert(partyId);for(const id of ids){assert.equal(p.w.FZHostApp.state.tables[id].status,'seated');assert.equal(p.w.FZHostApp.state.tables[id].partyId,partyId);}
+ assert.equal(p.w.FZHostApp.state.parties[partyId].people,36);assert.equal(p.w.FZHostApp.state.parties[partyId].secondary.length,6);assert.equal(p.w.FZHostApp.state.shifts.PM.rows.flatMap(r=>r.entries).filter(e=>e.kind==='party').length,1);assert.equal(shared.commits.filter(c=>c.path==='app').length,1);assert.equal(shared.commits.filter(c=>c.path==='app/live').length,0);assert.deepEqual(p.errors,[]);
+ }finally{await pause(40);p.dom.window.close();}
+});
 
 test('reservation details for eleven guests shows an approved dining combination, never single bar stools',async()=>{
  const shared=fixture(),cfg=shared.data.app.config,live=shared.data.app.live;cfg.formations.test={'4':['A4','L5'],BAR:Array.from({length:12},(_,i)=>'Bar '+(i+1))};live.shifts.PM.rows[0].section='4';live.shifts.PM.assignments={A4:'aj',L5:'aj',...Object.fromEntries(cfg.formations.test.BAR.map(id=>[id,'bar']))};shared.data.app.reservations={group:{name:'Fixture Eleven',people:11,date:live.day,time:'18:00'}};
