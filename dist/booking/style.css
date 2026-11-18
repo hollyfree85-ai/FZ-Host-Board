@@ -4,3 +4,5 @@
 @media print{header,footer,.intro,button,.text-button,.fine,.confirmation-note{display:none!important}main{display:block;padding:0}.card{box-shadow:none;border:0;max-width:600px;margin:auto}.card .fine{display:none}}
 
 .brand-logo{width:104px;height:auto;display:block;border-radius:8px}.brand{gap:16px}@media(max-width:620px){.brand-logo{width:86px}.brand{font-size:11px;gap:12px}.brand small{font-size:9px;letter-spacing:1.8px}}
+
+.availability{padding:14px;margin:14px 0;border:1px solid #afc5cb;border-radius:9px;font-size:15px;line-height:1.6;overflow-wrap:anywhere}.availability.available{background:#edf7ef;color:#235d39;border-color:#a3c5ab}.availability.full{background:#fff0e7;color:#87331d;border-color:#da9b7b}.availability.pending{background:#f0f5f7;color:#345968}#check-availability{margin-bottom:22px;min-height:44px;font-size:13px}@media(max-width:620px){.intro h1{letter-spacing:-.8px;word-spacing:normal}}

@@ -1,0 +1,9 @@
+## Quota and table availability
+
+All active online and host-entered reservations count their guests, including seated reservations. Only completed, deleted, cancelled or no-show records release their own guest count. No historical records are migrated or deleted by this release.
+
+Sunday–Thursday: 3–5 PM 60 guests, 5–7 PM 50, 7–9 PM 50. Friday/Saturday: 3–5 PM 60, 5–7 PM 50, 7–9 PM 40, 9–10 PM 60. The last window includes the existing last-seating grace (9:20 PM / 10:20 PM); before 3 PM there is no numeric cap, but capacity still applies. Windows start inclusively and end exclusively except the last-seating minute.
+
+Today requires actual READY tables in the selected AM/PM formation. Seated, cleaning and reserved tables cannot be promised to a new guest. Existing unseated reservations in that window are packed into disjoint approved combinations in the same section; overdue uncompleted bookings also retain their table needs. Linked seated parties already occupy the Floor and are not subtracted twice. Future dates use the current formation plan, not today's occupied-table status. This does not guarantee a specific table on a future day. Unknown or unavailable capacity fails closed; no new combinations are inferred, and bar stools are never offered for a party.
+
+GET /api/availability returns only aggregate capacity and a message, never guest details. POST /api/book rechecks the complete current snapshot under Firebase ETag compare-and-swap. A failed save cannot show confirmation. Existing request fingerprints still make retries idempotent. The host app uses the same quota engine for new/edited/restored reservations and three acknowledgements before Done/Delete. Release of a linked seated party and reservation status changes are atomic. Firebase remains Spark; no new SMS provider or paid service is enabled.

@@ -21,9 +21,10 @@ class HostConnection{
   if(previous&&previous.id!==cmd.id&&!this.state.receipts[previous.id])throw Error('A previous operation is unresolved. Use Recheck pending operation in Operations.');
   this.busy=true;this.status();this.savePending(cmd);const started=performance.now();let reductionError=null,attempts=0;
   try{
-   const result=await this.liveRef.transaction(current=>{attempts++;reductionError=null;try{return HostCore.reduce(current,cmd,this.config,this.now());}catch(e){reductionError=e;return undefined;}},undefined,false);
+   if(cmd.quotaAtomic)await this.ref.get();
+   const result=await (cmd.quotaAtomic?this.ref:this.liveRef).transaction(current=>{attempts++;reductionError=null;try{return cmd.quotaAtomic?ReservationQuota.reduceBoard(current,cmd,this.now()):HostCore.reduce(current,cmd,this.config,this.now());}catch(e){reductionError=e;return undefined;}},undefined,false);
    if(!result.committed)throw reductionError||Error('Operation was not committed. Reload the current table.');
-   const databaseMs=Math.round(performance.now()-started);this.raw=result.snapshot.val();this.adopt();this.clearPending();return {state:this.state,elapsed:Math.round(performance.now()-started),databaseMs,attempts,id:cmd.id};
+   const databaseMs=Math.round(performance.now()-started);this.raw=cmd.quotaAtomic?result.snapshot.val().live:result.snapshot.val();this.adopt();this.clearPending();return {state:this.state,elapsed:Math.round(performance.now()-started),databaseMs,attempts,id:cmd.id};
   }catch(e){if(reductionError){this.clearPending();throw reductionError;}throw Error('Database did not confirm this operation. Recheck before retrying. '+e.message);}
   finally{this.busy=false;this.status();}
  }
