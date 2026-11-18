@@ -30,15 +30,14 @@ test('future dates use formation capacity, today uses READY, and a linked seated
  f.live.tables.L6={status:'cleaning'};assert.equal(Q.assess(f).available,false);assert.equal(Q.assess({...f,date:'2026-11-19'}).available,true);
  f.live.day='2026-11-17';assert.equal(Q.assess(f).reason,'floor');
 });
-test('completion requires three acknowledgements and cancel at any step stops immediately',()=>{
- for(const stop of [0,1,2]){let calls=0;assert.equal(Q.confirmRelease(()=>calls++!==stop,'Party','DONE'),false);assert.equal(calls,stop+1);}
- const texts=[];assert.equal(Q.confirmRelease(t=>{texts.push(t);return true;},'Party','DONE'),true);assert.equal(texts.length,3);assert.match(texts[0],/READY/);assert.match(texts[1],/quota/);assert.match(texts[2],/manager/i);
+test('reservation deletion requires three acknowledgements and cancel at any step stops immediately',()=>{
+ for(const stop of [0,1,2]){let calls=0;assert.equal(Q.confirmReservationDelete(()=>calls++!==stop,'Party'),false);assert.equal(calls,stop+1);}
+ const texts=[];assert.equal(Q.confirmReservationDelete(t=>{texts.push(t);return true;},'Party'),true);assert.equal(texts.length,3);assert.match(texts[0],/DELETE RESERVATION/);assert.match(texts[1],/quota/);assert.match(texts[2],/manager/i);
 });
 test('atomic linked party completion updates quota once, preserves rotation and undo can restore usage',()=>{
  const f=fixture(),b={live:f.live,config:f.config,reservations:{a:{date,time:'17:00',people:6,status:'scheduled'}}};
  let s=Q.reduceBoard(b,{id:'seat',type:'SEAT',day:date,shift:'PM',at:now,table:'L5',people:6,rowId:'l',reservationId:'a'},now);assert.equal(s.reservations.a.status,'seated');
- assert.throws(()=>Q.reduceBoard(s,{id:'del',type:'DELETE',day:date,shift:'PM',at:now+1,table:'L5',partyId:'seat'},now+1),/three/);
- const cmd={id:'del',type:'DELETE',day:date,shift:'PM',at:now+1,table:'L5',partyId:'seat',releaseAcknowledged:3};s=Q.reduceBoard(s,cmd,now+1);assert.equal(s.reservations.a.status,'completed');assert.equal(Q.usage(s.reservations,date,'17:00').used,0);assert.deepEqual(Q.reduceBoard(s,cmd,now+2),s);
+ const cmd={id:'del',type:'DELETE',day:date,shift:'PM',at:now+1,table:'L5',partyId:'seat'};s=Q.reduceBoard(s,cmd,now+1);assert.equal(s.reservations.a.status,'completed');assert.equal(Q.usage(s.reservations,date,'17:00').used,0);assert.deepEqual(Q.reduceBoard(s,cmd,now+2),s);
  s=Q.reduceBoard(s,{id:'undo',type:'UNDO',day:date,shift:'PM',at:now+3,undoId:'del'},now+3);assert.equal(s.reservations.a.status,'seated');assert.equal(Q.usage(s.reservations,date,'17:00').used,6);assert.equal(s.live.tables.L5.status,'seated');
 });
 

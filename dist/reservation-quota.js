@@ -56,8 +56,7 @@ function reduceBoard(root,cmd,now){
   const r=records[id];
   if(cmd.type==='SEAT')records[id]={...r,status:'seated',seatedAt:cmd.at,partyId:cmd.id,table:cmd.table,secondary:C.list(cmd.secondary),updatedAt:cmd.at};
   else if(party&&!next.parties?.[party.id]&&(cmd.type==='DELETE'||cmd.type==='CLEAR_ENTRY'||cmd.type==='STATUS'&&cmd.status==='ready')){
-   if(cmd.releaseAcknowledged!==3)throw Error('Complete all three manager acknowledgements first.');
-   if(!released(r))records[id]={...r,status:'completed',completedAt:cmd.at,updatedAt:cmd.at,quotaRelease:{at:cmd.at,partyId:party.id,previousStatus:r.status||'scheduled',acknowledgements:3}};
+   if(!released(r))records[id]={...r,status:'completed',completedAt:cmd.at,updatedAt:cmd.at,quotaRelease:{at:cmd.at,partyId:party.id,previousStatus:r.status||'scheduled',acknowledgements:0}};
   }else if(restored&&next.parties?.[restored.id]&&released(r)){
    if(!/^complete/.test(r.status||'')||r.quotaRelease?.partyId!==restored.id)throw Error('Restore the reservation first before restoring this party.');
    const u=usage(records,r.date,r.time);if(u.slot?.limit!=null&&u.used+Number(r.people)>u.slot.limit)throw Error('Reservation quota is now full. Consult the manager before restoring this party.');
@@ -67,11 +66,11 @@ function reduceBoard(root,cmd,now){
  }
  return {...root,live:next,reservations:records};
 }
-function confirmRelease(confirm,subject,action){
- const messages=[`1 OF 3 — ${action}\n\n${subject}\n\nHas this party finished, and are ALL tables it used READY for the next party? If it has not arrived, verify the cancellation.`,
- `2 OF 3 — RESERVATION QUOTA\n\nReleasing this party restores only its guest count to the booking quota. New guests may book immediately. Confirm the tables are actually ready.`,
+function confirmReservationDelete(confirm,subject){
+ const messages=[`1 OF 3 — DELETE RESERVATION\n\n${subject}\n\nDelete this reservation? Verify that it was cancelled or that the party has finished.`,
+ `2 OF 3 — RESERVATION QUOTA\n\nDeleting this reservation restores only its guest count to the booking quota. New guests may book immediately. If the party used tables, confirm ALL of them are READY.`,
  `3 OF 3 — MANAGER ACKNOWLEDGEMENT\n\nPlease consult the manager before continuing. Select OK to acknowledge that you have checked with the manager and confirmed the tables are ready (or the booking is cancelled).`];
  return messages.every(message=>confirm(message));
 }
-return {released,windowFor,usage,assess,linkedParty,confirmRelease,reduceBoard};
+return {released,windowFor,usage,assess,linkedParty,confirmReservationDelete,reduceBoard};
 });

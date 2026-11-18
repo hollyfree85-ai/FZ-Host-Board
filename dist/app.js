@@ -4,7 +4,7 @@ let wasConnected=false,labelLayoutCache={key:'',positions:null},lastBoardRenderK
 let connection,state,config,selected='',selectedShift=localStorage.getItem('fz_next_shift')||'PM',role='Front Host',managerAuthorized=false,seatDraft={},lastPanel='',lastAuthHash='',toastTimer,communications,floorAlerts,tableAlerts,voiceCommands,appUpdates,partyDialog;
 const formationLabel=k=>config?.formationNames?.[k]||k;
 const owner=()=>managerAuthorized&&role==='Owner',manager=()=>managerAuthorized&&['Manager','Owner'].includes(role),shiftBoard=()=>state?.shifts[selectedShift],party=()=>state&&C.partyFor(state,selected),currentRow=p=>state?.shifts[p?.shift||selectedShift]?.rows.find(r=>r.id===p?.rowId);
-function toast(message){$('toast').textContent=message;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',6500);}
+function toast(message){const target=[...document.querySelectorAll('dialog[open]')].at(-1)||document.body;if($('toast').parentElement!==target)target.appendChild($('toast'));$('toast').textContent=message;$('toast').style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').style.display='none',6500);}
 function notice(text,kind=''){$('notice').textContent=text;$('notice').className=kind;}
 function openDialog(title,html){if($('modal').open)$('modal').close();$('modal').classList.toggle('reservations-dialog',title==='Reservations');$('modal').classList.toggle('table-history-dialog',title==='Table Log Book');$('modal').classList.toggle('party-dialog',title==='Party Recommendations');$('modalTitle').textContent=title;$('modalBody').innerHTML=html;$('modal').showModal();}
 function closeDialog(){$('modal').close();$('seatWizard').close();}
@@ -16,7 +16,6 @@ function secondaryChoices(checked=[],own=''){const groups=new Map();for(const t 
 function checkedSecondary(root=document){return [...root.querySelectorAll('input[name=secondary]:checked')].map(x=>x.value);}
 function partyValues(p=party()){return p?{table:selected,partyId:p.id,partyVersion:p.version||1}: {table:selected};}
 async function send(type,values={},options={}){if(!connection)throw Error('Database is not ready.');if(connection.busy){toast('One action is still waiting for confirmation.');return null;}const activeParty=type==='CLEAR_ENTRY'?state.parties?.[values.entryId]:C.partyFor(state,values.table),release=!!activeParty&&(type==='DELETE'||type==='CLEAR_ENTRY'||type==='STATUS'&&values.status==='ready');
- if(release){if(!ReservationQuota.confirmRelease(message=>confirm(message),C.members(activeParty).join(' + ')+' · '+activeParty.people+' guests',type==='STATUS'?'MARK PARTY DONE / READY':'DELETE PARTY'))return null;values={...values,releaseAcknowledged:3};}
  const restored=type==='UNDO'?state.undo?.[values.undoId]?.party:type==='RESTORE_READY'?C.list(state.shifts?.[values.shift||selectedShift]?.rows).flatMap(r=>C.list(r.entries)).find(e=>e.id===values.entryId):null;
  const reservationId=values.reservationId||activeParty?.reservationId||restored?.reservationId||Object.keys(communications?.reservations||{}).find(id=>{const r=communications.reservations[id];return r.partyId&&(r.partyId===activeParty?.id||r.partyId===restored?.id);});
  const quotaAtomic=!!reservationId&&(release||type==='SEAT'||type==='UNDO'||type==='RESTORE_READY');

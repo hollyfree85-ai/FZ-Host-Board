@@ -15,14 +15,31 @@ class HostConnection{
  }
  adopt(force=false){if(this.raw&&this.config){const key=[this.raw.day,this.raw.revision,this.raw.updatedAt].join('|');if(!force&&this.adoptedKey===key)return;this.adoptedKey=key;this.state=HostCore.normalize(this.raw,this.config);this.onState(this.state);const pending=this.readPending();if(pending&&this.state.receipts[pending.id])this.clearPending();this.status();}}
  command(type,values={}){return {id:'op_'+this.now()+'_'+HostCore.uid(),type,at:this.now(),day:this.state?.day,shift:'PM',...values};}
+ async boardTransaction(update){
+  if(!this.connected)throw Error('Not connected. Wait for LIVE before saving.');
+  let listener,timer;
+  try{
+   // Firebase get() removes its temporary root cache when it resolves. Keep a
+   // complete root listener attached until the transaction is acknowledged.
+   // Otherwise the first update callback can receive null and abort a valid save.
+   await new Promise((resolve,reject)=>{
+    timer=setTimeout(()=>reject(Error('Could not load the current Board. Check the connection and try again.')),15000);
+    listener=snapshot=>{const board=snapshot.val();if(!board?.live||!board.config)reject(Error('Current Board is unavailable.'));else resolve();};
+    this.ref.on('value',listener,reject);
+   });
+   clearTimeout(timer);
+   if(!this.connected)throw Error('Not connected. Wait for LIVE before saving.');
+   return await this.ref.transaction(update,undefined,false);
+  }finally{clearTimeout(timer);if(listener)this.ref.off('value',listener);}
+ }
  async run(cmd){
   if(this.busy)throw Error('An operation is still waiting for confirmation.');if(!this.connected||!this.state||!this.config)throw Error('Not connected. Wait for LIVE before changing the Board.');
   const previous=this.readPending();
   if(previous&&previous.id!==cmd.id&&!this.state.receipts[previous.id])throw Error('A previous operation is unresolved. Use Recheck pending operation in Operations.');
   this.busy=true;this.status();this.savePending(cmd);const started=performance.now();let reductionError=null,attempts=0;
   try{
-   if(cmd.quotaAtomic)await this.ref.get();
-   const result=await (cmd.quotaAtomic?this.ref:this.liveRef).transaction(current=>{attempts++;reductionError=null;try{return cmd.quotaAtomic?ReservationQuota.reduceBoard(current,cmd,this.now()):HostCore.reduce(current,cmd,this.config,this.now());}catch(e){reductionError=e;return undefined;}},undefined,false);
+   const update=current=>{attempts++;reductionError=null;try{return cmd.quotaAtomic?ReservationQuota.reduceBoard(current,cmd,this.now()):HostCore.reduce(current,cmd,this.config,this.now());}catch(e){reductionError=e;return undefined;}};
+   const result=await (cmd.quotaAtomic?this.boardTransaction(update):this.liveRef.transaction(update,undefined,false));
    if(!result.committed)throw reductionError||Error('Operation was not committed. Reload the current table.');
    const databaseMs=Math.round(performance.now()-started);this.raw=cmd.quotaAtomic?result.snapshot.val().live:result.snapshot.val();this.adopt();this.clearPending();return {state:this.state,elapsed:Math.round(performance.now()-started),databaseMs,attempts,id:cmd.id};
   }catch(e){if(reductionError){this.clearPending();throw reductionError;}throw Error('Database did not confirm this operation. Recheck before retrying. '+e.message);}
