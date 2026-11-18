@@ -57,7 +57,7 @@ function renderPanel(){if(!state||!config||!selected)return;const t=state.tables
 }
 let wizard=null;
 function closeTable(){if($('tableDialog')?.open)$('tableDialog').close();}
-function finishRole(){render();$('roleGate').hidden=true;sessionStorage.setItem('fz_next_entered','1');pane('board');}
+function finishRole(){render();$('roleGate').hidden=true;sessionStorage.setItem('fz_next_entered','1');pane('board');communications?.reservationAlertCheck();}
 function initClassic(){
  window.addEventListener('resize',positionFrontiers);window.addEventListener('resize',fitFloor);window.visualViewport?.addEventListener('resize',fitFloor);if(typeof ResizeObserver!=='undefined')new ResizeObserver(fitFloor).observe($('map'));$('tableClose').onclick=closeTable;$('tableCancel').onclick=closeTable;$('wizardClose').onclick=()=>$('seatWizard').close();
  $('shiftBadge').onclick=()=>{$('shift').value=selectedShift==='PM'?'AM':'PM';$('shift').dispatchEvent(new Event('change'));};

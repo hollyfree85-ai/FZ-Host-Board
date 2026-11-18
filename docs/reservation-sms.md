@@ -2,15 +2,26 @@
 
 Guest URL: https://hollyfree85-ai.github.io/FZ-Host-Board/book.html
 
-Firebase remains on Spark. SMS execution and signed Twilio webhooks run in the existing reservation Worker. The iPad/Samsung do not send carrier SMS themselves. All messages and host alerts are in English.
+Firebase remains on Spark. All messages and host alerts are in English. Host alerts and the manual TEXT MESSAGE action work independently of the optional automated SMS backend.
 
-## Delivered behavior
+## Host app (v1.2.70)
 
-- One hour before arrival: host reminder; guest text asks for `CONFIRM`.
+- Every active, upcoming online booking produces a NEW ONLINE BOOKING alert with the guest name, party size, date and time. It also appears after reopening if not yet acknowledged. Acknowledgment is retained per device; edits and repeated realtime snapshots do not duplicate it.
+- In-app reminders occur one hour and 30 minutes before arrival. After waking or reconnecting, the current reminder is shown; at 30 minutes the obsolete one-hour stage is replaced rather than replayed. Arrived, seated, cancelled, deleted and completed reservations do not trigger time reminders.
+- Alerts remain visible above open dialogs, play the existing alert sound where permitted and use browser notifications if permission is granted. Login, window focus, visibility changes, connectivity events and the existing 30-second check refresh them. They require the host app to be open; closed-device push is not implemented.
+- Each reservation row has TEXT MESSAGE beside its phone field. A valid saved US number and active reservation open an editable, prefilled reminder containing the restaurant name, guest, party size and appointment in Huntsville time. OPEN MESSAGES opens the device composer; the host must press Send. COPY MESSAGE is a fallback. No automatic send or delivery claim is made. If the saved reservation changes while the draft is open, opening Messages is blocked until the current details are reviewed.
+- iPad SMS requires a paired iPhone with text message forwarding. SMS-capable Android devices use their installed Messages handler; opening a composer is not proof of sending or delivery.
+- Reminder and online alert checks do not write Board/Floor data or send guest messages.
+
+## Optional SMS backend (inactive until configured)
+
+The following backend schedule is separate from the host app's one-hour / 30-minute alerts. This release does not activate it or change its existing provider schedule. Automated SMS execution and signed Twilio webhooks use the existing reservation Worker.
+
+- One hour before arrival: guest text asks for `CONFIRM`.
 - `CONFIRM`: records attendance confirmation and shows a named host alert.
-- Ten minutes before arrival: guest text asks for `HERE` after the whole party arrives; host reminder also appears.
+- Ten minutes before arrival: guest text asks for `HERE` after the whole party arrives.
 - `HERE`: records arrival, acknowledges the guest and alerts the host with name and guest count. It does not claim that a physical table is ready.
-- Reservation Details shows up to three current table candidates, using rotation turns, active guest volume and READY status. Held, occupied, cut/unassigned-server tables are excluded. Known insufficient capacities are excluded. Missing capacities are explicitly marked; section numbers are never interpreted as seat counts. Selection does not alter rotation or seat/hold tables.
+- Reservation Details shows up to three candidates from the shared PARTY recommendation engine, including confirmed capacities and approved combinations. Held, occupied, undersized and cut/unassigned-server tables are excluded. Searching is read-only; ACCEPT seats the displayed party on Board and Floor after validating current availability.
 - Guest consent is optional. Host-created bookings can be enrolled only when the host checks the guest-consent box. Changed contact details do not inherit consent.
 - Duplicate callbacks do not duplicate a confirmation/arrival. Ambiguous phone matches require the six-character reference from the text. Cancelled/deleted/completed reservations are excluded. HTTP signatures and Account SID are checked before writes.
 - Twilio delivery callbacks update job state. Provider acceptance is not delivery. Uncertain sends require review; they are never blindly retried.
