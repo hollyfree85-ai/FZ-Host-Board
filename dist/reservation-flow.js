@@ -21,7 +21,8 @@ function candidates(state,config,reservation,id,shift,records={},now=Date.now())
  // Use the same confirmed capacities, approved combinations and formation rules as
  // Floor PARTY. Unknown capacity is never a usable candidate for a large party.
  const otherReservations=Object.fromEntries(Object.entries(records||{}).filter(([other])=>other!==id));
- return P.search({state,config,shift,people:reservation.people,records:otherReservations,now}).candidates.slice(0,3).map(c=>({...c,table:c.tables.join(' + '),capacity:c.max,recent:c.recentParties>0}));
+ const options=P.search({state,config,shift,people:reservation.people,records:otherReservations,now}).candidates;
+ return [...options.filter(c=>!c.inactive).slice(0,3),...options.filter(c=>c.inactive).slice(0,3)].map(c=>({...c,table:c.tables.join(' + '),capacity:c.max,recent:c.recentParties>0}));
 }
 return{active,phone,revision,replyStatus,appointmentLabel,reminderText,smsLink,alerts,candidates};
 });

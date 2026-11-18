@@ -115,11 +115,11 @@ test('twenty guests prefer the fitting Section 4 L combination before a cross-se
  assert.deepEqual(P.recommend({...f,people:36}).candidates[0].tables,['A4','L1','L2','L3','L4','L5','L6']);
 });
 
-test('host backup recommendations appear only after fitting active options are exhausted',()=>{
+test('outside options remain visible alongside fitting active recommendations, with active first',()=>{
  const f=fixture({'1':['A1'],'2':['A2']});f.people=3;f.state.shifts.PM.rows[1].cut=true;
- assert.equal(P.search(f).inactive,undefined);assert.deepEqual(tableSets(P.search(f)),['A1']);
+ assert.equal(P.search(f).activeCount,1);assert.equal(P.search(f).backupCount,1);assert.deepEqual(tableSets(P.search(f)),['A1','A2']);assert.equal(P.search(f).candidates[1].inactive,true);
  f.state.tables.A1.status='seated';const before=JSON.stringify(f),report=P.search(f);assert.equal(report.inactive,true);assert.deepEqual(tableSets(report),['A2']);assert.equal(report.candidates[0].inactiveTables[0].reason,'CUT SECTION');assert.deepEqual(report.candidates[0].serverChoices.map(r=>r.rowId),['1']);assert.equal(JSON.stringify(f),before);
- f.state.tables.A1.status='ready';assert.deepEqual(tableSets(P.search(f)),['A1']);
+ f.state.tables.A1.status='ready';assert.deepEqual(tableSets(P.search(f)),['A1','A2']);
 });
 test('backup search finds unassigned current sections and distinct tables from other formations without duplicates',()=>{
  const f=fixture({'1':['A1'],'2':['L5','L6']});f.people=13;delete f.state.shifts.PM.assignments.L5;delete f.state.shifts.PM.assignments.L6;
@@ -140,9 +140,9 @@ test('backup cannot reinterpret current physical sections or bypass recovery and
  f.state.shifts.PM.rows[0].entries=Array.from({length:59},()=>({kind:'manual'}));r=P.search({...f,people:13});assert.equal(r.candidates.length,1);assert.deepEqual(r.candidates[0].serverChoices,[]);
  f.state.shifts.PM.rows[0].cut=true;assert.deepEqual(P.search({...f,people:13}).candidates[0].serverChoices,[]);
 });
-test('hiding active cross-section options cannot activate the backup fallback',()=>{
+test('hiding cross-section options keeps eligible same-section outside options visible',()=>{
  const f=fixture({'1':['L5'],'2':['L6'],'3':['R5','R6']});f.people=13;f.state.shifts.PM.rows[2].cut=true;
- const report=P.search({...f,allowCrossSection:false});assert.equal(report.candidates.length,0);assert.equal(report.inactive,undefined);assert.equal(report.crossSectionCount,1);
+ const report=P.search({...f,allowCrossSection:false});assert.equal(report.candidates.length,1);assert.equal(report.candidates[0].inactive,true);assert.equal(report.candidates[0].crossSection,false);assert.deepEqual(report.candidates[0].tables,['R5','R6']);assert.equal(report.crossSectionCount,1);
 });
 
 test('atomic backup ACCEPT rejects a changed alternative plan and preserves current assignments',()=>{

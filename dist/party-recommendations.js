@@ -94,8 +94,6 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
 // formation; a closed section is not promised online without a host decision.
 function search(args){
  const report=recommend(args);
- // Hiding a valid cross-section option is not a full active floor.
- if(report.candidates.length||report.crossSectionCount)return report;
  const {state,config,shift='PM',people,records={},now=Date.now()}=args,board=state?.shifts?.[shift];
  if(!Number.isInteger(people)||people<1||people>120||state?.day!==C.dayAt(now)||!config?.formations?.[board?.formation])return report;
  const current=config.formations[board.formation],known=new Set(C.list(config.tables).map(t=>t.id)),activeRows=C.rotationRows(board).filter(r=>String(r.server||'').trim()),activeMap=new Map(activeRows.map(r=>[r.id,r]));
@@ -132,7 +130,7 @@ function search(args){
   }
  }
  candidates.sort((a,b)=>Number(a.planFormation!==board.formation)-Number(b.planFormation!==board.formation)||Number(a.crossSection)-Number(b.crossSection)||(people<5?Number(b.booth)-Number(a.booth):a.area-b.area)||(a.max-people)-(b.max-people)||a.tables.length-b.tables.length||a.tables.join().localeCompare(b.tables.join(),undefined,{numeric:true}));
- return {...report,candidates,inactive:candidates.length>0,reason:candidates.length?'No fitting active option. Review these READY backup tables.':report.reason};
+ return {...report,candidates:[...report.candidates,...candidates],activeCount:report.candidates.length,backupCount:candidates.length,inactive:!report.candidates.length&&candidates.length>0,reason:candidates.length?'Review these additional READY tables outside the active sections.':report.reason};
 }
 return {capacities,capacityFor,booths,groups,canCrossSections,totalCapacity,recommend,search,sectionFor};
 });

@@ -33,7 +33,7 @@ test('reservation candidates use the current formation, approved groups, workloa
  state.shifts.PM={formation:'test',rows:[{id:'a',server:'Angela',section:'4',entries:[]},{id:'b',server:'Ashley',section:'5',entries:[]},{id:'cut',server:'Cut Server',section:'6',entries:[],cut:true}],assignments:{L5:'a',L6:'a',R5:'b',R6:'cut',A1:'a'}};
  state.tables.L6.status='reserved';state.tables.A1={status:'seated',partyId:'party'};state.parties.party={id:'party',rowId:'b',shift:'PM',people:4,primary:'A1'};
  const record=r(),before=JSON.stringify(state),list=F.candidates(state,config,record,'x','PM',{},now);
- assert.equal(list[0].table,'L5');assert(!list.some(c=>['A1','L6','R6'].includes(c.table)));assert.equal(list.find(c=>c.table==='R5').afterGuests,11);assert(list.every(c=>c.capacity>=record.people));assert.equal(JSON.stringify(state),before);
+ assert.equal(list[0].table,'L5');assert(!list.some(c=>['A1','L6'].includes(c.table)));assert.equal(list.find(c=>c.table==='R6').inactive,true);assert.equal(list.find(c=>c.table==='R5').afterGuests,11);assert(list.every(c=>c.capacity>=record.people));assert.equal(JSON.stringify(state),before);
  const held=F.candidates(state,config,record,'x','PM',{other:{...record,table:'L5'}},now);assert(!held.some(c=>c.table==='L5'));
  assert(F.candidates(state,config,record,'x','PM',{x:{...record,table:'L5'}},now).some(c=>c.table==='L5'),'own table assignment is not a competing hold');
  state.shifts.PM.rows[0].entries=[{id:'e',kind:'party',people:8,at:now-600000}];assert.equal(F.candidates(state,config,record,'x','PM',{},now)[0].table,'R5');
@@ -44,4 +44,10 @@ test('eleven-guest reservation cannot use bar stools or unknown capacity, includ
  const stools=Array.from({length:12},(_,n)=>'Bar '+(n+1)),config={tables:[...stools,'Unknown','A4','L5'].map(id=>({id,capacity:99})),formations:{test:{BAR:[...stools,'Unknown'],'4':['A4','L5']}}},state=C.initial(config,now);
  state.shifts.PM={formation:'test',rows:[{id:'bar',server:'Bartender',section:'BAR',entries:[]},{id:'l',server:'Dining Server',section:'4',entries:[{kind:'manual'}]}],assignments:Object.fromEntries([...stools.map(id=>[id,'bar']),['Unknown','bar'],['A4','l'],['L5','l']])};
  const record={...r(),people:11},list=F.candidates(state,config,record,'x','PM',{},now);assert.equal(list.length,1);assert.deepEqual(list[0].tables,['A4','L5']);assert.equal(list[0].capacity,11);state.tables.A4.status='reserved';assert.deepEqual(F.candidates(state,config,record,'x','PM',{},now),[]);
+});
+
+test('reservation details retain outside options even when three or more active matches fit',()=>{
+ const ids=['L5','L6','R5','R6','C2'],config={tables:ids.map(id=>({id})),formations:{test:{'4':['L5','L6','R5','R6'],'6':['C2']}}},state=C.initial(config,now);
+ state.shifts.PM={formation:'test',rows:[{id:'a',server:'Active Server',section:'4',entries:[]}],assignments:Object.fromEntries(ids.filter(id=>id!=='C2').map(id=>[id,'a']))};
+ const list=F.candidates(state,config,{...r(),people:6},'x','PM',{},now);assert.equal(list.filter(c=>!c.inactive).length,3);assert.equal(list.filter(c=>c.inactive).length,1);assert.equal(list.at(-1).table,'C2');assert.equal(list.at(-1).serverChoices[0].rowId,'a');
 });
