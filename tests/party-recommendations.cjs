@@ -114,3 +114,40 @@ test('twenty guests prefer the fitting Section 4 L combination before a cross-se
  assert.deepEqual(P.recommend({...f,people:30}).candidates[0].tables,['L1','L2','L3','L4','L5','L6']);
  assert.deepEqual(P.recommend({...f,people:36}).candidates[0].tables,['A4','L1','L2','L3','L4','L5','L6']);
 });
+
+test('host backup recommendations appear only after fitting active options are exhausted',()=>{
+ const f=fixture({'1':['A1'],'2':['A2']});f.people=3;f.state.shifts.PM.rows[1].cut=true;
+ assert.equal(P.search(f).inactive,undefined);assert.deepEqual(tableSets(P.search(f)),['A1']);
+ f.state.tables.A1.status='seated';const before=JSON.stringify(f),report=P.search(f);assert.equal(report.inactive,true);assert.deepEqual(tableSets(report),['A2']);assert.equal(report.candidates[0].inactiveTables[0].reason,'CUT SECTION');assert.deepEqual(report.candidates[0].serverChoices.map(r=>r.rowId),['1']);assert.equal(JSON.stringify(f),before);
+ f.state.tables.A1.status='ready';assert.deepEqual(tableSets(P.search(f)),['A1']);
+});
+test('backup search finds unassigned current sections and distinct tables from other formations without duplicates',()=>{
+ const f=fixture({'1':['A1'],'2':['L5','L6']});f.people=13;delete f.state.shifts.PM.assignments.L5;delete f.state.shifts.PM.assignments.L6;
+ let c=P.search(f).candidates[0];assert.deepEqual(c.tables,['L5','L6']);assert.equal(c.planFormation,'test');assert(c.inactiveTables.every(t=>t.reason==='UNASSIGNED SECTION'));
+ delete f.config.formations.test['2'];f.config.formations.extra={'7':['L5','L6']};f.config.formations.duplicate={'7':['L5','L6']};f.config.formationNames={duplicate:'Extra Dining'};
+ const report=P.search(f);assert.equal(report.candidates.length,1);c=report.candidates[0];assert.equal(c.formationLabel,'Extra Dining');assert.equal(c.planFormation,'duplicate');assert.equal(c.section,'7');assert(c.inactiveTables.every(t=>t.reason==='OTHER FORMATION'));
+});
+test('backup still enforces every READY member, holds, capacity, C/D conflicts and known formation tables',()=>{
+ const f=fixture({'1':['A1'],'2':['C2','C3','C4']});f.people=18;f.state.shifts.PM.rows[1].cut=true;assert.equal(P.search(f).candidates.length,1);
+ for(const status of ['reserved','cleaning','seated']){f.state.tables.C3.status=status;assert.equal(P.search(f).candidates.length,0);}f.state.tables.C3.status='ready';f.state.tables.C3.partyId='p';assert.equal(P.search(f).candidates.length,0);delete f.state.tables.C3.partyId;
+ f.records={r:{date:f.state.day,time:'19:00',table:'C2',people:18}};assert.equal(P.search(f).candidates.length,0);f.records={};
+ f.state.parties.x={primary:'D1',secondary:['D2']};assert.equal(P.search(f).candidates.length,0);delete f.state.parties.x;
+ assert.equal(P.search({...f,people:19}).candidates.length,0);f.config.tables=f.config.tables.filter(t=>t.id!=='C4');assert.equal(P.search(f).candidates.length,0);
+});
+test('backup cannot reinterpret current physical sections or bypass recovery and Board space',()=>{
+ const f=fixture({'1':['A1'],'2':['L5'],'3':['L6']});f.state.shifts.PM.rows[1].cut=true;f.state.shifts.PM.rows[2].cut=true;f.config.formations.alternate={'2':['L5','L6']};
+ assert.equal(P.search({...f,people:12}).candidates.length,0);let r=P.search({...f,people:13});assert.equal(r.candidates.length,1);assert.equal(r.candidates[0].crossSection,true);
+ f.state.shifts.PM.rows[0].entries=Array.from({length:59},()=>({kind:'manual'}));r=P.search({...f,people:13});assert.equal(r.candidates.length,1);assert.deepEqual(r.candidates[0].serverChoices,[]);
+ f.state.shifts.PM.rows[0].cut=true;assert.deepEqual(P.search({...f,people:13}).candidates[0].serverChoices,[]);
+});
+test('hiding active cross-section options cannot activate the backup fallback',()=>{
+ const f=fixture({'1':['L5'],'2':['L6'],'3':['R5','R6']});f.people=13;f.state.shifts.PM.rows[2].cut=true;
+ const report=P.search({...f,allowCrossSection:false});assert.equal(report.candidates.length,0);assert.equal(report.inactive,undefined);assert.equal(report.crossSectionCount,1);
+});
+
+test('atomic backup ACCEPT rejects a changed alternative plan and preserves current assignments',()=>{
+ const f=fixture({'1':['A1'],'2':['L5','L6']});delete f.config.formations.test['2'];f.config.formations.extra={'4':['L5','L6']};delete f.state.shifts.PM.assignments.L5;delete f.state.shifts.PM.assignments.L6;
+ const cmd={id:'backup',type:'SEAT',shift:'PM',at:now,day:f.state.day,table:'L5',secondary:['L6'],people:13,rowId:'1',recommendation:{revision:f.state.revision,formation:'test',formationKey:JSON.stringify(f.config.formations.test),backupFormation:'extra',backupFormationKey:JSON.stringify(f.config.formations.extra),assignments:{}}};
+ const next=C.reduce(f.state,cmd,f.config,now);assert.equal(next.tables.L5.partyId,'backup');assert.equal(next.tables.L6.partyId,'backup');assert.deepEqual(next.shifts.PM.assignments,f.state.shifts.PM.assignments);assert.equal(next.shifts.PM.formation,'test');
+ f.config.formations.extra['4']=['L5'];assert.throws(()=>C.reduce(f.state,cmd,f.config,now),/Backup formation changed/);assert.equal(f.state.tables.L5.status,'ready');
+});

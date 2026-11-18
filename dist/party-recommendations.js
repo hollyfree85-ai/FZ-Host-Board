@@ -90,5 +90,49 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  if(!result.candidates.length)result.reason=canCrossSections(people)&&allowCrossSection?'No suitable READY tables or approved combinations for this party.':'No suitable READY tables in one section for this party.';
  return result;
 }
-return {capacities,capacityFor,booths,groups,canCrossSections,totalCapacity,recommend,sectionFor};
+// Host-only overflow suggestions. Guest booking capacity still uses the active
+// formation; a closed section is not promised online without a host decision.
+function search(args){
+ const report=recommend(args);
+ // Hiding a valid cross-section option is not a full active floor.
+ if(report.candidates.length||report.crossSectionCount)return report;
+ const {state,config,shift='PM',people,records={},now=Date.now()}=args,board=state?.shifts?.[shift];
+ if(!Number.isInteger(people)||people<1||people>120||state?.day!==C.dayAt(now)||!config?.formations?.[board?.formation])return report;
+ const current=config.formations[board.formation],known=new Set(C.list(config.tables).map(t=>t.id)),activeRows=C.rotationRows(board).filter(r=>String(r.server||'').trim()),activeMap=new Map(activeRows.map(r=>[r.id,r]));
+ const currentTables=new Set(Object.values(current).flatMap(C.list));
+ const held=new Set(Object.values(records||{}).filter(r=>r&&r.table&&r.date===state.day&&!/cancel|complete|seated|no.?show|deleted/i.test(r.status||'')&&C.reservationTime(r.date,r.time)+3600000>now).flatMap(r=>[r.table,...C.list(r.secondary)]));
+ const available=id=>known.has(id)&&state.tables?.[id]?.status==='ready'&&!state.tables[id].partyId&&!held.has(id);
+ const inactive=id=>!currentTables.has(id)||!activeMap.has(board.assignments?.[id]);
+ const joined=prefix=>Object.values(state.parties||{}).some(p=>C.members(p).filter(id=>id.startsWith(prefix)).length>1);
+ const joinedC=joined('C'),joinedD=joined('D');
+ const serverChoices=activeRows.flatMap((row,i)=>{
+  const auto=shift==='PM'&&row.barAuto!==false&&String(row.section).toUpperCase().includes('BAR')&&C.list(row.entries).filter(e=>e.kind==='party').length%2===1?1:0,turn=C.deferredTurn(state,shift,row,now);
+  if(C.slots(row)+Math.ceil(people/4)+auto>60||turn&&!turn.eligible)return [];
+  const load=workload(state,shift,row,now);
+  return [{rowId:row.id,server:row.server,beeper:row.beeper||'—',serverSection:row.section,turns:C.slots(row),rotation:i+1,returnPriority:!!turn?.eligible,returnAt:turn?.at||0,...load,afterGuests:load.activeGuests+people}];
+ }).sort((a,b)=>Number(b.returnPriority)-Number(a.returnPriority)||(a.returnPriority&&b.returnPriority?a.returnAt-b.returnAt:0)||a.turns-b.turns||(people<5?a.rotation-b.rotation:a.recentGuests-b.recentGuests||a.activeGuests-b.activeGuests||a.rotation-b.rotation));
+ const plans=[board.formation,...Object.keys(config.formations).filter(key=>key!==board.formation).sort()],options=C.list(config.tables).flatMap(t=>{const cap=capacityFor(t.id);return cap?[{tables:[t.id],...cap}]:[];}).concat(people<5?[]:groups),candidates=[];
+ for(const option of options){
+  const ids=option.tables;if(option.max<people||!ids.every(available)||!ids.some(inactive))continue;
+  if(ids.filter(id=>/^C/.test(id)).length>1&&joinedD||ids.filter(id=>/^D/.test(id)).length>1&&joinedC)continue;
+  // Keep the current physical section boundaries whenever these tables exist
+  // there. An alternate template cannot disguise a <=12 cross-section party.
+  const candidatePlans=ids.every(id=>currentTables.has(id))?[board.formation]:plans;
+  for(const planFormation of candidatePlans){
+   const form=config.formations[planFormation],sections=ids.map(id=>{
+    const found=Object.entries(form).filter(([,tables])=>C.list(tables).includes(id));if(found.length!==1)return '';
+    const row=C.list(board.rows).find(r=>r.id===board.assignments?.[id]);
+    return planFormation===board.formation&&row?sectionFor(board,config,id,row)||found[0][0]:found[0][0];
+   });
+   if(sections.some(s=>!s))continue;
+   const crossSection=new Set(sections).size>1;if(crossSection&&(!canCrossSections(people)||args.allowCrossSection===false))continue;
+   const inactiveTables=ids.filter(inactive).map(id=>{const row=C.list(board.rows).find(r=>r.id===board.assignments?.[id]);return {table:id,reason:!currentTables.has(id)?'OTHER FORMATION':row?.cut?'CUT SECTION':'UNASSIGNED SECTION'};});
+   candidates.push({tables:[...ids],min:option.min,max:option.max,booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',inactive:true,inactiveTables,planFormation,formationLabel:config.formationNames?.[planFormation]||planFormation,section:[...new Set(sections)].join(' / '),crossSection,area:areaRank(ids),serverChoices,server:'Choose an active server',rowId:'',beeper:'—',servers:[]});
+   break; // One physical group, not a duplicate card for each saved formation.
+  }
+ }
+ candidates.sort((a,b)=>Number(a.planFormation!==board.formation)-Number(b.planFormation!==board.formation)||Number(a.crossSection)-Number(b.crossSection)||(people<5?Number(b.booth)-Number(a.booth):a.area-b.area)||(a.max-people)-(b.max-people)||a.tables.length-b.tables.length||a.tables.join().localeCompare(b.tables.join(),undefined,{numeric:true}));
+ return {...report,candidates,inactive:candidates.length>0,reason:candidates.length?'No fitting active option. Review these READY backup tables.':report.reason};
+}
+return {capacities,capacityFor,booths,groups,canCrossSections,totalCapacity,recommend,search,sectionFor};
 });
