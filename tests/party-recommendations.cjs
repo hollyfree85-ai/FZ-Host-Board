@@ -88,7 +88,7 @@ test('workload includes active AM carryover for a PM server without changing rot
 test('invalid sizes, missing formation and empty sections explain why no result is offered',()=>{for(const people of [0,-1,121,2.5,NaN])assert.match(P.recommend({...fixture(),people}).reason,/whole number/);const f=fixture();f.state.shifts.PM.rows=[];assert.match(P.recommend(f).reason,/active server/);});
 
 test('PM BAR capacity includes the next automatic skip and stale service days cannot produce suggestions',()=>{
- const f=fixture({'BAR':['M1','M2']});f.people=8;const row=f.state.shifts.PM.rows[0];row.barAuto=true;row.entries=[{kind:'party',people:4,at:now-600000},...Array.from({length:57},()=>({kind:'manual'}))];assert.equal(P.recommend(f).candidates.length,0);row.barAuto=false;assert.equal(P.recommend(f).candidates.length,1);f.state.day='2026-11-15';assert.match(P.recommend(f).reason,/current service day/);
+ const f=fixture({'BAR':['M1']});f.people=5;const row=f.state.shifts.PM.rows[0];row.barAuto=true;row.entries=[{kind:'party',people:4,at:now-600000},...Array.from({length:57},()=>({kind:'manual'}))];assert.equal(P.recommend(f).candidates.length,0);row.barAuto=false;assert.equal(P.recommend(f).candidates.length,1);f.state.day='2026-11-15';assert.match(P.recommend(f).reason,/current service day/);
 });
 
 

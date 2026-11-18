@@ -41,3 +41,7 @@ Backup tables can belong to a CUT or unassigned section in the current formation
 Host explicitly chooses an eligible active server. Server choices follow held-turn priority, rotation and workload and exclude CUT staff, full Board rows and recovery holds. ACCEPT stays disabled until a choice is made. If no active server qualifies, the card asks the host to assign/uncut a server or wait and refresh. No employee is uncut automatically.
 
 ACCEPT seats only this party and adds its Board entry to the chosen server. It leaves current formation, section assignments and other parties intact. The latest recommendation is revalidated; revision, table status, assignment and source-formation guards reject stale acceptance. Linked reservations are seated atomically with the party. Public guest availability remains governed by the existing active formation/quota rules; backup seating requires this host decision.
+
+## BAR section limit
+
+The BAR section allows at most five guests per party, including H/M or other dining tables assigned to BAR in the current formation. Manual seating, voice, ACCEPT, people edits, secondary links, moves and seating restores share this validation. Active and outside-formation recommendations obey it; overflow server choices exclude the BAR row for six or more. Merged dining/BAR rows retain the capacity of their non-BAR tables. Bar stools still seat one each. Guest booking starts at six, so BAR tables contribute no available booking capacity. Existing seated records and history are preserved; READY still releases a party directly.

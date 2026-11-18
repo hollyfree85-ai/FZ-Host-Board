@@ -163,7 +163,7 @@ test('Floor PARTY searches live formation, shows English recommendations and nev
 });
 
 test('Party automatically includes cross-section groups above twelve and refreshes reservation holds',async()=>{
- const shared=fixture();shared.data.app.config.tables=shared.data.app.config.tables.filter(t=>['B1','B2','B3'].includes(t.id));shared.data.app.config.formations.test={'2':['B1','B2'],'BAR':['B3']};shared.data.app.live.shifts.PM.assignments={B1:'aj',B2:'aj',B3:'bar'};
+ const shared=fixture();shared.data.app.config.tables=shared.data.app.config.tables.filter(t=>['B1','B2','B3'].includes(t.id));shared.data.app.config.formations.test={'2':['B1','B2'],'3':['B3']};shared.data.app.live.shifts.PM.rows.find(r=>r.id==='bar').section='3';shared.data.app.live.shifts.PM.assignments={B1:'aj',B2:'aj',B3:'bar'};
  const p=await page(shared);try{const d=p.w.document;p.w.FZHostApp.operation('party');d.getElementById('partyPeople').value='10';d.getElementById('partySearchForm').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));assert(d.querySelector('[data-party-tables="B1|B2"]'));assert(!d.querySelector('[data-party-tables="B2|B3"]'));assert(!d.getElementById('partyCrossSection'));
  d.getElementById('partyPeople').value='15';d.getElementById('partySearchForm').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));assert(d.querySelector('[data-party-tables="B1|B2|B3"]'));assert.match(d.getElementById('partyResults').textContent,/Coordinate before seating/);d.getElementById('partyCrossSection').click();assert(!d.querySelector('.party-option'));d.getElementById('partyCrossSection').click();assert(d.querySelector('.party-option'));
  await p.w.FZHostApp.connection.ref.child('reservations').child('hold').set({name:'Fixture Guest',people:10,date:p.w.FZHostApp.state.day,time:'19:00',table:'B2'});await waitFor(()=>!d.querySelector('.party-option'),'reservation removes recommendation');assert.equal(shared.commits.filter(c=>c.path==='app/live').length,0);assert.deepEqual(p.errors,[]);
@@ -331,4 +331,13 @@ test('only DELETE RESERVATION requires all three prompts and cancellation at any
  try{const d=p.w.document;p.w.FZHostApp.operation('reservations');for(const stop of [1,2,3]){let calls=0;p.w.confirm=()=>++calls!==stop;d.querySelector('[data-res-delete="q"]').click();await pause(20);assert.equal(calls,stop);assert.equal(shared.data.app.reservations.q.status,'scheduled');}
   const messages=[];p.w.confirm=message=>{messages.push(message);return true;};d.querySelector('[data-res-delete="q"]').click();await waitFor(()=>shared.data.app.reservations.q.status==='deleted','confirmed deletion');assert.equal(messages.length,3);assert.match(messages[0],/DELETE RESERVATION/);assert.equal(shared.data.app.reservations.q.phone,'2565550123');assert.equal(shared.data.app.reservations.q.quotaRelease.acknowledgements,3);assert.deepEqual(p.errors,[]);
  }finally{await pause(40);p.dom.window.close();}
+});
+
+test('BAR wizard displays five-person maximum, blocks six and submits five',async()=>{
+ const shared=fixture();shared.data.app.live.shifts.PM.assignments.H2='bar';const p=await page(shared);
+ try{const d=p.w.document;d.querySelector('[data-entry-role="Front Host"]').click();d.querySelector('[data-row-seat="bar"]').click();d.querySelector('[data-pick-table="H2"]').click();d.getElementById('wizardNext').click();
+ assert.match(d.getElementById('wizardBody').textContent,/MAXIMUM 5 GUESTS/);assert.equal(d.querySelector('[data-people="6"]').disabled,true);assert.equal(d.getElementById('wizardPeople').max,'5');
+ d.getElementById('wizardPeople').value='6';d.getElementById('wizardPeople').dispatchEvent(new p.w.Event('input'));d.getElementById('wizardNext').click();assert.equal(d.getElementById('wizardStep').textContent,'STEP 2 OF 3');assert.equal(shared.commits.length,0);
+ d.querySelector('[data-people="5"]').click();d.getElementById('wizardNext').click();d.getElementById('wizardNext').click();await waitFor(()=>p.w.FZHostApp.state.tables.H2.status==='seated'&&!p.w.FZHostApp.connection.busy,'BAR five-person seating');assert.equal(C.partyFor(p.w.FZHostApp.state,'H2').people,5);assert.deepEqual(p.errors,[]);
+ }finally{await pause(30);p.dom.window.close();}
 });

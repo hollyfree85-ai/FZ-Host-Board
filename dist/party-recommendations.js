@@ -33,14 +33,7 @@ function totalCapacity(ids,options=groups){
  return base+best(0,new Set());
 }
 const serverKey=name=>String(name||'').trim().toLowerCase().replace(/\s+/g,' ');
-function sectionFor(board,config,id,row){
- const sections=String(row.section||'').split(/\s*\/\s*/).filter(Boolean);
- const original=Object.entries(config.formations?.[board.formation]||{}).filter(([,ids])=>C.list(ids).includes(id)).map(([section])=>section);
- // Breaking Section can transfer a table to a different section. A merged server
- // row still retains distinct physical sections, so it is not automatically safe to join.
- if(sections.length===1)return sections[0];
- const matched=original.filter(section=>sections.includes(section));return matched.length===1?matched[0]:'';
-}
+const sectionFor=C.sectionFor;
 function workload(state,shift,row,now){
  const sameServer=(sh,id)=>{const other=C.list(state.shifts?.[sh]?.rows).find(r=>r.id===id);return (sh===shift&&id===row.id)||!!other&&serverKey(other.server)===serverKey(row.server);};
  const parties=Object.values(state.parties||{}).filter(p=>sameServer(p.shift,p.rowId));
@@ -80,8 +73,8 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
   const uniqueRows=[...new Map(assigned.map(r=>[r.id,r])).values()].sort((a,b)=>rotationIndex.get(a.id)-rotationIndex.get(b.id));
   const uniqueSections=[...new Set(sections)],crossSection=uniqueSections.length>1||uniqueRows.length>1;
   if(crossSection){if(!canCrossSections(people))continue;result.crossSectionCount++;if(!allowCrossSection)continue;}
-  const row=uniqueRows[0],load=loads.get(row.id),returnTurn=deferred.get(row.id);
-  result.candidates.push({tables:[...ids],booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',min:option.min,max:option.max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),returnPriority:!!returnTurn?.eligible,returnAt:returnTurn?.at||0,returnReason:returnTurn?.reason||'',...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
+  const row=uniqueRows[0],load=loads.get(row.id),returnTurn=deferred.get(row.id),max=Math.min(option.max,C.partyLimit(board,config,ids,row));if(people>max)continue;
+  result.candidates.push({tables:[...ids],booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',min:Math.min(option.min,max),max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),returnPriority:!!returnTurn?.eligible,returnAt:returnTurn?.at||0,returnReason:returnTurn?.reason||'',...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
  }
  // 1–4 guests follow the exact Board queue. Parties of 5+ keep the nearest
  // turn count, then the owner's area order and actual workload before section order.
@@ -124,8 +117,10 @@ function search(args){
    });
    if(sections.some(s=>!s))continue;
    const crossSection=new Set(sections).size>1;if(crossSection&&(!canCrossSections(people)||args.allowCrossSection===false))continue;
+   const max=Math.min(option.max,sections.some(C.isBarSection)?5:120,C.partyLimit(board,config,ids,null,planFormation));if(people>max)continue;
+   const choices=serverChoices.filter(choice=>people<=C.partyLimit(board,config,ids,activeMap.get(choice.rowId),planFormation));
    const inactiveTables=ids.filter(inactive).map(id=>{const row=C.list(board.rows).find(r=>r.id===board.assignments?.[id]);return {table:id,reason:!currentTables.has(id)?'OTHER FORMATION':row?.cut?'CUT SECTION':'UNASSIGNED SECTION'};});
-   candidates.push({tables:[...ids],min:option.min,max:option.max,booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',inactive:true,inactiveTables,planFormation,formationLabel:config.formationNames?.[planFormation]||planFormation,section:[...new Set(sections)].join(' / '),crossSection,area:areaRank(ids),serverChoices,server:'Choose an active server',rowId:'',beeper:'—',servers:[]});
+   candidates.push({tables:[...ids],min:Math.min(option.min,max),max,booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',inactive:true,inactiveTables,planFormation,formationLabel:config.formationNames?.[planFormation]||planFormation,section:[...new Set(sections)].join(' / '),crossSection,area:areaRank(ids),serverChoices:choices,server:'Choose an active server',rowId:'',beeper:'—',servers:[]});
    break; // One physical group, not a duplicate card for each saved formation.
   }
  }
