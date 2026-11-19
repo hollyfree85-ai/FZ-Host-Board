@@ -360,3 +360,44 @@ async function cutOwner(p,existing=false){const d=p.w.document;d.querySelector('
 test('PM Formation & Servers saves Closer and Tomorrow AM across devices; AM has no PM checkboxes',async()=>{const shared=cutFixture(),a=await page(shared),b=await page(shared);try{const d=a.w.document;a.w.FZHostApp.operation('setup');let box=d.querySelector('[data-save-section="2"]').parentElement;assert.equal(box.querySelector('[data-pm-closer]').checked,false);box.querySelector('[data-pm-closer]').click();box.querySelector('[data-pm-tomorrow]').click();box.querySelector('[data-save-section]').click();await waitFor(()=>b.w.FZHostApp.state.shifts.PM.rows.find(r=>r.id==='2').closer&&!a.w.FZHostApp.connection.busy,'closer settings shared');const rows=b.w.FZHostApp.state.shifts.PM.rows;assert.equal(rows.filter(r=>r.closer).length,1);assert.equal(rows.find(r=>r.id==='2').workTomorrowAM,true);assert.equal(rows.find(r=>r.id==='3').closer,false);d.getElementById('modalClose').click();a.w.FZHostApp.operation('setup');box=d.querySelector('[data-save-section="2"]').parentElement;assert.equal(box.querySelector('[data-pm-closer]').checked,true);assert.equal(box.querySelector('[data-pm-tomorrow]').checked,true);d.getElementById('modalClose').click();d.getElementById('shift').value='AM';d.getElementById('shift').dispatchEvent(new a.w.Event('change'));a.w.FZHostApp.operation('setup');assert.equal(d.querySelector('[data-pm-closer]'),null);assert.deepEqual(a.errors,[]);assert.deepEqual(b.errors,[]);}finally{a.dom.window.close();b.dom.window.close();}});
 test('Manager cut alert names servers, saves CUT / NOT CUT across tablets, respects offline and stage boundaries',async()=>{const shared=cutFixture(),s=shared.data.app.live;s.parties.existing={id:'existing',version:1,primary:'B2',secondary:[],people:2,rowId:'2',shift:'PM',at:NOW-3600000};s.tables.B2={status:'seated',partyId:'existing'};s.shifts.PM.rows[1].entries=[{id:'existing',kind:'party',primary:'B2',secondary:[],people:2,at:NOW-3600000}];const a=await page(shared);let b;try{await cutOwner(a);b=await page(shared);await cutOwner(b,true);let now=C.reservationTime(s.day,'20:09');for(const p of [a,b])p.w.FZHostApp.connection.now=()=>now;a.w.FZHostApp.cutAlerts.check();assert.equal(a.w.document.querySelector('#pmCutAlert'),null);now=C.reservationTime(s.day,'20:10');for(const p of [a,b])p.w.FZHostApp.cutAlerts.check();const d=a.w.document;assert(d.querySelector('#pmCutAlert').textContent.includes('8:15 PM'));assert(d.querySelector('[data-cut-row="2"]').textContent.includes('B2, B3'));assert.equal(d.querySelector('[data-cut-row="3"]'),null);a.w.FZHostApp.connection.connected=false;a.w.FZHostApp.cutAlerts.check();assert.equal(d.querySelector('[data-cut-row="2"] button').disabled,true);a.w.FZHostApp.connection.connected=true;a.w.FZHostApp.cutAlerts.check();d.querySelector('[data-cut-row="2"] [data-cut-decision="false"]').click();await waitFor(()=>b.w.FZHostApp.state.shifts.PM.cutReviews?.first?.decisions?.['2']&&!a.w.FZHostApp.connection.busy,'not cut shared');assert.equal(b.w.FZHostApp.state.shifts.PM.rows[1].cut,false);assert.equal(b.w.document.querySelector('[data-cut-row="2"]'),null);assert(d.getElementById('toast'));assert.equal(a.w.FZHostApp.cutAlerts.error,'');now=C.reservationTime(s.day,'20:55');for(const p of [a,b])p.w.FZHostApp.cutAlerts.check();assert(d.querySelector('#pmCutAlert').textContent.includes('9:00 PM'));d.querySelector('[data-cut-row="2"] [data-cut-decision="true"]').click();await waitFor(()=>b.w.FZHostApp.state.shifts.PM.rows[1].cut&&!a.w.FZHostApp.connection.busy,'cut shared');assert.equal(b.w.FZHostApp.state.tables.B2.partyId,'existing');assert.equal(b.w.FZHostApp.state.parties.existing.people,2);assert.equal(b.w.FZHostApp.state.shifts.PM.rows[1].entries.length,1);assert.equal(b.w.document.querySelector('[data-cut-row="2"]'),null);assert(d.getElementById('toast'));assert.equal(a.w.FZHostApp.cutAlerts.error,'');a.w.FZHostApp.cutAlerts.close();assert(d.getElementById('toast'));assert.deepEqual(a.errors,[]);assert.deepEqual(b.errors,[]);}finally{a.dom.window.close();b?.dom.window.close();}});
 test('Formation editor includes PM flags, saves one closer and retains occupied tables',async()=>{const p=await page(cutFixture());try{await cutOwner(p);const d=p.w.document;p.w.FZHostApp.operation('formation');const box=d.querySelector('[data-change-section="4"]').parentElement;box.querySelector('[data-pm-closer]').click();d.getElementById('saveFormationChange').click();await waitFor(()=>p.w.FZHostApp.state.shifts.PM.rows.find(r=>r.id==='4').closer&&!p.w.FZHostApp.connection.busy,'formation flags');assert.equal(p.w.FZHostApp.state.shifts.PM.rows.filter(r=>r.closer).length,1);assert.equal(p.w.FZHostApp.state.shifts.PM.rows.find(r=>r.id==='4').workTomorrowAM,true);assert.deepEqual(p.errors,[]);}finally{p.dom.window.close();}});
+
+test('Front Host and Floor Host receive overdue reviews and share CUT / NOT CUT without manager login',async()=>{
+ const shared=cutFixture(),a=await page(shared),b=await page(shared);
+ try{
+  for(const p of [a,b])p.w.FZHostApp.connection.now=()=>C.reservationTime(shared.data.app.live.day,'21:03');
+  const da=a.w.document,db=b.w.document;
+  a.w.FZHostApp.cutAlerts.check();assert.equal(da.querySelector('#pmCutAlert'),null);
+  da.querySelector('[data-entry-role="Front Host"]').click();
+  db.getElementById('role').value='Floor Host';db.getElementById('role').dispatchEvent(new b.w.Event('change'));
+  for(const d of [da,db]){assert(d.querySelector('#pmCutAlert').open);assert.match(d.querySelector('#pmCutAlert').textContent,/9:00 PM/);assert.equal(d.querySelector('#managerPassword'),null);for(const id of ['1','3','BAR'])assert.equal(d.querySelector('[data-cut-row="'+id+'"]'),null);}
+  da.querySelector('[data-cut-row="2"] [data-cut-decision="false"]').click();
+  await waitFor(()=>b.w.FZHostApp.state.shifts.PM.cutReviews?.second?.decisions?.['2']&&!a.w.FZHostApp.cutAlerts.busy,'host NOT CUT shared');
+  assert.equal(b.w.FZHostApp.state.shifts.PM.rows.find(r=>r.id==='2').cut,false);assert.equal(db.querySelector('[data-cut-row="2"]'),null);
+  db.querySelector('[data-cut-row="4"] [data-cut-decision="true"]').click();
+  await waitFor(()=>a.w.FZHostApp.state.shifts.PM.rows.find(r=>r.id==='4').cut&&!b.w.FZHostApp.cutAlerts.busy,'floor host CUT shared');
+  assert.equal(da.querySelector('[data-cut-row="4"]'),null);assert.equal(a.w.FZHostApp.cutAlerts.error,'');assert.equal(b.w.FZHostApp.cutAlerts.error,'');
+  da.getElementById('logout').click();assert.equal(da.querySelector('#pmCutAlert'),null);assert.equal(da.getElementById('roleGate').hidden,false);
+  a.w.FZHostApp.operation('cut');assert.equal(da.getElementById('modal').open,false);
+  assert.deepEqual(a.errors,[]);assert.deepEqual(b.errors,[]);
+ }finally{a.dom.window.close();b.dom.window.close();}
+});
+
+test('Host can open Cut / Uncut and review controls while other protected tools still require manager access',async()=>{
+ const p=await page(cutFixture());try{
+  const d=p.w.document;d.querySelector('[data-entry-role="Front Host"]').click();p.w.FZHostApp.operation('cut');
+  assert.equal(d.getElementById('modalTitle').textContent,'Cut / Uncut Employee');assert(d.getElementById('reviewPmCut'));
+  d.querySelector('[data-cut="2"]').click();await waitFor(()=>p.w.FZHostApp.state.shifts.PM.rows.find(r=>r.id==='2').cut&&!p.w.FZHostApp.connection.busy,'host manual CUT');
+  d.querySelector('[data-cut="2"]').click();await waitFor(()=>!p.w.FZHostApp.state.shifts.PM.rows.find(r=>r.id==='2').cut&&!p.w.FZHostApp.connection.busy,'host manual UNCUT');
+  d.getElementById('modalClose').click();for(const op of ['map','formation','password','clearPM']){p.w.FZHostApp.operation(op);assert.equal(d.getElementById('modal').open,false);assert.match(d.getElementById('toast').textContent,/Manager \/ Owner authorization/);}
+  assert.deepEqual(p.errors,[]);
+ }finally{p.dom.window.close();}
+});
+
+test('Host cut review catches up on focus and reconnect without changing staffing',async()=>{
+ const p=await page(cutFixture());try{
+  const d=p.w.document;d.querySelector('[data-entry-role="Front Host"]').click();p.w.FZHostApp.connection.now=()=>C.reservationTime(p.w.FZHostApp.state.day,'21:02');p.w.FZHostApp.connection.connected=false;
+  p.w.dispatchEvent(new p.w.Event('focus'));assert.equal(d.querySelector('#pmCutAlert'),null);
+  p.w.FZHostApp.connection.connected=true;p.w.FZHostApp.connection.status();assert(d.querySelector('#pmCutAlert').open);assert.equal(p.shared.commits.length,0);
+  p.w.FZHostApp.cutAlerts.close(false);p.w.dispatchEvent(new p.w.Event('focus'));assert(d.querySelector('#pmCutAlert').open);assert.equal(p.shared.commits.length,0);assert.deepEqual(p.errors,[]);
+ }finally{p.dom.window.close();}
+});

@@ -1,7 +1,7 @@
 (function(root){'use strict';
 const C=root.HostCore,clock=time=>{const [h,m]=time.split(':');return (Number(h)-12)+':'+m+' PM';};
 class CutAlerts{
- constructor(options){this.options=options;this.dialog=null;this.busy=false;this.error='';this.snooze={};this.timer=setInterval(()=>this.check(),15000);document.addEventListener('visibilitychange',()=>this.check());}
+ constructor(options){this.options=options;this.dialog=null;this.busy=false;this.error='';this.snooze={};this.timer=setInterval(()=>this.check(),15000);document.addEventListener('visibilitychange',()=>this.check());for(const event of ['focus','online'])root.addEventListener(event,()=>this.check());}
  context(){const state=this.options.state();return state?C.pmCutPlan(state,this.options.now()):null;}
  preserveToast(){const toast=this.dialog?.querySelector('#toast');if(toast)document.body.appendChild(toast);}
  close(snooze=true){if(snooze&&this.stageKey)this.snooze[this.stageKey]=this.options.now()+5*60000;if(this.dialog){this.preserveToast();this.dialog.close();this.dialog.remove();}this.dialog=null;this.renderKey='';}
