@@ -91,3 +91,11 @@ Larger Floor identity cards with two-line names and independent section sizing. 
 
 ### 1.2.28
 Skip duplicate confirmed-state adoption and unchanged Board/Floor DOM rebuilds during save. Confirmation timing shows database wait, final UI time and transaction attempts for device-specific save diagnosis. Database acknowledgement remains required before success.
+
+## v1.2.77 — Separate four-server and five-server formations
+
+The former 5/4 SERVER template is now displayed as **5 SERVER**. Its existing storage key (`5_4 SERVER`) is retained so active shifts, history and older installed clients keep working. All five section assignments remain unchanged.
+
+**4 SERVER** has sections 2, 3, 4 and 5 with the same table membership as the five-server template. C1–C4 and D1–D3 are outside this formation. BAR contains H1–H4, M1, M2 and Bar 1–12; the five-guest BAR limit still applies. There are 49 distinct tables/seats in this template.
+
+The live configuration receives only the new template and its display labels. Existing shift selection, employees, beepers, rotation, seated parties, reservations and history are preserved. Select the desired formation through the existing Formation controls.
