@@ -185,19 +185,8 @@ nav{grid-template-columns:repeat(4,minmax(0,1fr))}nav button{min-width:0;padding
 
 #voiceToggle{position:fixed;z-index:1100;top:10px;left:76px;max-width:calc(100vw - 250px);min-height:34px;padding:6px 10px;font-size:11px;background:#173d5e;color:white;border:1px solid #86adc9}#voiceToggle[aria-pressed=true]{background:#176640;border-color:#72d8a4}@media(max-width:600px){#voiceToggle{top:48px;left:12px;max-width:calc(100vw - 24px);font-size:10px}}
 
-/* Phones use touch-sized table tiles instead of shrinking the physical map. */
+/* Phone Board controls stay touch-sized; Floor retains the physical map. */
 @media (max-width:650px), (pointer:coarse) and (max-height:500px){
- #floor.active{overflow:auto}
- #floor .floor-layout{display:block!important;flex:none;overflow:visible}
- #floor .map{display:grid;grid-template-columns:repeat(auto-fit,minmax(76px,1fr));gap:8px;padding:8px;height:auto!important;overflow:visible}
- #floor .map>.door,#floor .map>.zone{display:none}
- #floor .map .table{position:static!important;width:100%!important;height:auto!important;min-height:54px!important;transform:none!important}
- #floor .map .table strong{font-size:17px!important}
- #floor .map .table small{font-size:12px!important}
- #floor #sectionLabels{position:static!important;grid-column:1/-1;display:grid!important;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;width:auto!important;height:auto!important}
- #floor #sectionLabels .section-marker{display:flex!important;flex-direction:column;align-items:center;position:static!important;transform:none!important;width:auto!important;height:auto!important;max-width:none!important;gap:3px;padding:6px}
- #floor #sectionLabels .section-marker>*{position:static!important;transform:none!important;font-size:14px!important;white-space:normal!important;height:auto!important;max-width:100%!important}
- #floor #sectionLabels .section-beeper{align-self:center!important;min-height:0!important}
  #board .board-row{grid-template-columns:minmax(0,1fr)!important}
  #board .row-meta,#board .turns,#board .row-actions{grid-column:1;grid-row:auto}
  #board .turns{grid-template-columns:repeat(6,minmax(0,1fr));gap:5px}
@@ -263,3 +252,16 @@ nav{grid-template-columns:repeat(4,minmax(0,1fr))}nav button{min-width:0;padding
 .quota-summary-window{display:inline-block;padding:8px 12px;margin:4px;border:1px solid #81bdd7;border-radius:8px;font-size:16px;font-weight:700}.reservation-row-actions [data-res-done]{min-height:44px}
 
 .reservation-save-status{padding:14px 16px;border:2px solid #4ade80;border-radius:10px;background:#123b34;color:#edfff4;font-size:17px;font-weight:750;line-height:1.45;overflow-wrap:anywhere}.reservation-save-error{border-color:#f87171;background:#562332;color:#fff1f2}
+
+/* Preserve the same Floor coordinates at every size. Zoom changes only its view. */
+.floor-map-canvas{position:relative;width:100%;height:100%;min-width:0;min-height:0}
+.floor-zoom-controls{display:none}
+@media (max-width:650px), (pointer:coarse) and (max-height:500px){
+ #floor .floor-layout{display:block!important;flex:1 1 0;min-height:0;overflow:auto!important;padding:0;overscroll-behavior:contain;touch-action:pan-x pan-y;-webkit-overflow-scrolling:touch}
+ #floor .floor-map-canvas{margin:0 auto}
+ #floor .map{display:block;width:1200px!important;height:700px!important;max-width:none;max-height:none;transform-origin:top left;transform:scale(var(--floor-map-scale,1));border-radius:0}
+ .floor-zoom-controls{display:flex;flex:0 0 auto;align-items:center;gap:6px;padding:4px 10px 6px;background:#f3f4f6;color:#173d5e}
+ .floor-zoom-controls button{min-width:44px;min-height:44px;padding:8px 12px;font-size:16px;background:#fff;color:#173d5e;border:1px solid #8aa7bd;border-radius:8px}
+ .floor-zoom-controls button:disabled{cursor:default;opacity:.4}
+ .floor-zoom-controls small{font-size:13px;line-height:1.25;max-width:150px;margin-left:4px}
+}

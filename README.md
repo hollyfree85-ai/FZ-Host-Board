@@ -99,3 +99,7 @@ The former 5/4 SERVER template is now displayed as **5 SERVER**. Its existing st
 **4 SERVER** has sections 2, 3, 4 and 5 with the same table membership as the five-server template. C1–C4 and D1–D3 are outside this formation. BAR contains H1–H4, M1, M2 and Bar 1–12; the five-guest BAR limit still applies. There are 49 distinct tables/seats in this template.
 
 The live configuration receives only the new template and its display labels. Existing shift selection, employees, beepers, rotation, seated parties, reservations and history are preserved. Select the desired formation through the existing Formation controls.
+
+## v1.2.78 — Keep the physical Floor map on phones
+
+The phone-specific tile grid is removed. Floor keeps the same saved table coordinates, table angles, Front Door, POS and bar areas on phones, tablets and desktop. Small screens start with the full map fitted to the available space; +/− and FIT FLOOR change the viewing scale, and native scrolling pans the enlarged map. Formation 4/5, live parties and database table positions are unchanged.

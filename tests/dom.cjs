@@ -341,3 +341,16 @@ test('BAR wizard displays five-person maximum, blocks six and submits five',asyn
  d.querySelector('[data-people="5"]').click();d.getElementById('wizardNext').click();d.getElementById('wizardNext').click();await waitFor(()=>p.w.FZHostApp.state.tables.H2.status==='seated'&&!p.w.FZHostApp.connection.busy,'BAR five-person seating');assert.equal(C.partyFor(p.w.FZHostApp.state,'H2').people,5);assert.deepEqual(p.errors,[]);
  }finally{await pause(30);p.dom.window.close();}
 });
+
+test('phone Floor zoom preserves every table coordinate and returns to the full physical map without writes',async()=>{
+ const p=await page();try{
+  const d=p.w.document,map=d.getElementById('map'),viewport=d.getElementById('floorViewport'),canvas=d.getElementById('floorCanvas');
+  Object.defineProperty(map,'clientWidth',{configurable:true,value:1200});Object.defineProperty(map,'clientHeight',{configurable:true,value:700});
+  Object.defineProperty(viewport,'clientWidth',{configurable:true,value:390});Object.defineProperty(viewport,'clientHeight',{configurable:true,value:360});p.w.matchMedia=()=>({matches:true});
+  const coordinates=()=>[...map.querySelectorAll('.table')].map(b=>[b.dataset.table,b.style.left,b.style.top,b.style.width,b.style.height,b.style.transform]);const before=coordinates();p.w.FZHostApp.pane('floor');p.w.dispatchEvent(new p.w.Event('resize'));
+  assert.equal(canvas.style.width,'390px');assert.equal(d.getElementById('floorZoomOut').disabled,true);assert.equal(map.querySelectorAll('.table').length,56);assert(map.querySelector('.door'));assert(map.querySelector('.cashier'));
+  d.getElementById('floorZoomIn').click();assert(parseFloat(canvas.style.width)>390);assert.equal(d.getElementById('floorZoomOut').disabled,false);assert.deepEqual(coordinates(),before);
+  d.getElementById('floorZoomFit').click();assert.equal(canvas.style.width,'390px');assert.deepEqual(coordinates(),before);
+  p.w.matchMedia=()=>({matches:false});p.w.dispatchEvent(new p.w.Event('resize'));assert.equal(canvas.style.width,'');assert.equal(map.style.getPropertyValue('--floor-map-scale'),'');assert.deepEqual(coordinates(),before);assert.equal(p.shared.commits.length,0);assert.deepEqual(p.errors,[]);
+ }finally{await pause(30);p.dom.window.close();}
+});
