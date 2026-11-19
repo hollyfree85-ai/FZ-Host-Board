@@ -1,5 +1,16 @@
 # FZ Host Board
 
+## v1.2.79 — PM closer and manager cut reviews
+
+PM Formation & Servers and Edit Formation now save **Closer** (one person) and **Work tomorrow AM** for each employee. These settings follow the employee across formation changes and stay separate from AM.
+
+- Sun–Thu: first review 8:15 PM for Double / Long Shift / tomorrow AM; second 9:00 PM. Keep BAR, S1 and closer (3 unique people).
+- Fri–Sat: first review 9:15 PM, up to 4 eligible cuts (target 3–4, subject to remaining coverage); second 10:00 PM. Keep BAR, S1, closer and one extra S4/S5 section (4 unique people). A closer in S4 keeps S5 and vice versa when staffed. Otherwise prefer a non-early-cut employee in S4/S5.
+- If roles overlap or S1 is absent, another active section fills the closing headcount. Never cut protected closing staff to meet the first-cut target. Missing closer is shown prominently.
+- A named review opens 5 minutes before each cut while the app is visible in Manager/Owner mode. CUT and NOT CUT are explicit, shared decisions per person and stage; no automatic cut. NOT CUT is considered again at the next stage. Review Later snoozes 5 minutes. The normal Cut / Uncut screen can reopen the review.
+- Decisions revalidate the latest staff, formation and shared review before committing. A stale tablet must review updated names. Cutting a server preserves seated parties, table status, rotation entries and reservations. Existing AM cut rules and the physical Floor map are unchanged.
+
+
 Operational host app for Board, Floor and Operations. This is a new application; the previous board remains separate.
 
 ## First launch
