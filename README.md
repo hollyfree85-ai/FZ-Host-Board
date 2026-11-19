@@ -1,5 +1,9 @@
 # FZ Host Board
 
+## v1.2.81 — Single six-server formation
+
+Remove 6 SERVER - FORMATION 1. Display the retained Formation 2 as **6 SERVER**, preserving its current live table assignments (including E1 in S3). Keep the retained internal key for compatibility. Apply the same catalog and display-name change to the live shared configuration; do not change active shifts, parties or Floor coordinates.
+
 ## v1.2.80 — PM closer and manager cut reviews
 
 PM Formation & Servers and Edit Formation now save **Closer** (one person) and **Work tomorrow AM** for each employee. These settings follow the employee across formation changes and stay separate from AM.
