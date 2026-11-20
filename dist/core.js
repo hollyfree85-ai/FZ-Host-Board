@@ -11,10 +11,29 @@ function reservationUndoAvailable(r,now){const expiry=reservationUndoExpiry(r);r
 function reservationUndoExpired(r,now){const expiry=reservationUndoExpiry(r);return expiry!==null&&now>=expiry;}
 function emptyShift(){return {formation:'',rows:[],assignments:{}};}
 function initial(config,at=Date.now()){return {schema:1,day:dayAt(at),revision:0,updatedAt:at,shifts:{AM:emptyShift(),PM:emptyShift()},tables:Object.fromEntries(config.tables.map(t=>[t.id,{status:'ready'}])),parties:{},undo:{},receipts:{},tableHistory:{}};}
-function normalize(raw,config){const s=copy(raw||initial(config));s.shifts=s.shifts||{};for(const sh of ['AM','PM']){const b=s.shifts[sh]||(s.shifts[sh]=emptyShift());b.rows=list(b.rows);b.assignments=b.assignments||{};b.rows.forEach(r=>{r.entries=list(r.entries);r.barAuto=r.barAuto!==false;});}s.tables=s.tables||{};for(const t of config.tables)s.tables[t.id]=s.tables[t.id]||{status:'ready'};s.parties=s.parties||{};s.undo=s.undo||{};s.receipts=s.receipts||{};return s;}
+function normalize(raw,config){const s=copy(raw||initial(config));s.shifts=s.shifts||{};for(const sh of ['AM','PM']){const b=s.shifts[sh]||(s.shifts[sh]=emptyShift());b.rows=list(b.rows);b.assignments=b.assignments||{};b.rows.forEach(r=>{r.entries=list(r.entries);r.barAuto=r.barAuto!==false;});syncSectionAssignments(b,config);}s.tables=s.tables||{};for(const t of config.tables)s.tables[t.id]=s.tables[t.id]||{status:'ready'};s.parties=s.parties||{};s.undo=s.undo||{};s.receipts=s.receipts||{};return s;}
 function rowOf(s,shift,id){const row=s.shifts[shift]?.rows.find(r=>r.id===id);if(!row)fail('Server row changed. Choose the server again.');return row;}
+// Physical section rules are separate from a party's serving employee.
+function rowHasSection(row,section){return String(row?.section||'').split(/\s*\/\s*|-/).includes(section);}
+function sharedSections(board,config,id){return list(config.sectionRules?.shared?.[board?.formation]?.[id]);}
+function fixedSection(config,id){return config.sectionRules?.fixed?.[id]||'';}
+function tableRows(board,config,id,includeCut=false){
+ const shared=sharedSections(board,config,id),fixed=fixedSection(config,id),rows=list(board?.rows);
+ const owners=shared.length?rows.filter(r=>shared.some(s=>rowHasSection(r,s))):fixed?rows.filter(r=>rowHasSection(r,fixed)):rows.filter(r=>r.id===board?.assignments?.[id]);
+ return owners.filter(r=>String(r.server||'').trim()&&(includeCut||!r.cut));
+}
+function tableSectionLabel(board,config,id,row){const shared=sharedSections(board,config,id);return shared.length?shared.map(s=>s==='BAR'?'Bar':s).join('/'):fixedSection(config,id)||sectionFor(board,config,id,row);}
+function syncSectionAssignments(board,config){
+ for(const id of new Set([...Object.keys(config.sectionRules?.fixed||{}),...Object.keys(config.sectionRules?.shared?.[board.formation]||{})])){
+  const owners=tableRows(board,config,id,true),current=owners.find(r=>r.id===board.assignments[id]);
+  const owner=current&&!current.cut?current:owners.find(r=>!r.cut)||current||owners[0];
+  if(owner)board.assignments[id]=owner.id;else delete board.assignments[id];
+ }
+}
 // BAR is a section limit, including its dining tables in the current formation.
 function sectionFor(board,config,id,row){
+ const fixed=fixedSection(config,id);if(fixed)return fixed;
+ const shared=sharedSections(board,config,id);if(shared.length)return shared.find(s=>rowHasSection(row,s))||shared[0];
  const sections=String(row?.section||'').split(/\s*\/\s*/).filter(Boolean);
  const original=Object.entries(config.formations?.[board?.formation]||{}).filter(([,ids])=>list(ids).includes(id)).map(([section])=>section);
  if(sections.length===1)return sections[0];
@@ -26,7 +45,8 @@ function partyLimit(board,config,ids,row,backupFormation=''){
  if(/^BAR$/i.test(String(row?.section||'').trim()))return 5;
  for(const id of ids){
   const assigned=list(board?.rows).find(r=>r.id===board?.assignments?.[id]);
-  const current=sectionFor(board,config,id,assigned);
+  const shared=sharedSections(board,config,id);
+  const current=sectionFor(board,config,id,shared.length?(row||tableRows(board,config,id).find(r=>rowHasSection(r,'1'))||assigned):assigned);
   const section=current||sectionFor({formation:backupFormation},config,id);
   if(/^bar\s*\d+$/i.test(id)||isBarSection(section))return 5;
  }
@@ -57,7 +77,7 @@ function deferredTurn(s,shift,row,at){
 function rememberPassedTurn(s,shift,row,config,at){
  if(row.cut||!canonical(row.server))return;
  const board=s.shifts[shift],formed=new Set(Object.values(config.formations?.[board.formation]||{}).flatMap(list));
- const own=Object.entries(board.assignments).filter(([id,owner])=>owner===row.id&&formed.has(id)).map(([id])=>id);
+ const own=[...formed].filter(id=>tableRows(board,config,id).some(r=>r.id===row.id));
  if(!own.length)return;
  const last=latestSeating(s,shift,row,at),hasReady=own.some(id=>s.tables[id]?.status==='ready'&&!s.tables[id].partyId);
  const reason=!hasReady?'no_ready':last&&at-last.at<recoveryMs?'recovery':'';
@@ -219,7 +239,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
   if(!assigned.size)fail('Assign at least one server.');for(const row of next)if(row.cut)delete b.deferredTurns?.[row.id];b.rows=next;b.formation=cmd.formation;b.assignments={};for(const [sec,ids]of Object.entries(form)){const server=canonical(cmd.servers?.[sec]),row=b.rows.find(r=>!r.cut&&canonical(r.server)===server);if(row)for(const table of list(ids))b.assignments[table]=row.id;}
   break;}
  case 'JOIN':{const server=canonical(cmd.server),ids=list(cmd.tables);if(!server||!ids.length)fail('Choose a server and section tables.');if(b.rows.some(r=>canonical(r.server)===server&&!r.cut))fail('This server already has an active row.');const r={id:'row_'+cmd.id,server,section:String(cmd.section||'BREAK'),beeper:'',cut:false,barAuto:true,entries:[]};b.rows.push(r);for(const id of ids){if(!s.tables[id])fail('Unknown table '+id);b.assignments[id]=r.id;}break;}
- case 'SEAT':{if(cmd.recommendation){const expected=cmd.recommendation;if(s.revision!==expected.revision||b.formation!==expected.formation||JSON.stringify(config.formations?.[b.formation]||{})!==expected.formationKey)fail('Floor or rotation changed. Review the updated recommendation.','CONFLICT');if(expected.backupFormation&&JSON.stringify(config.formations?.[expected.backupFormation])!==expected.backupFormationKey)fail('Backup formation changed. Review the updated recommendation.','CONFLICT');for(const id of [cmd.table,...list(cmd.secondary)])if(b.assignments[id]!==expected.assignments?.[id]||s.tables[id]?.status!=='ready'||s.tables[id]?.partyId)fail('Table assignment or availability changed. Review the updated recommendation.','CONFLICT');}if(cmd.reservationId&&Object.values(s.parties).some(p=>p.reservationId===cmd.reservationId))fail('This reservation is already seated.','CONFLICT');const r=rowOf(s,sh,cmd.rowId);if(r.cut)fail('This employee is CUT.');const people=countPeople(cmd.people),secondary=list(cmd.secondary);available(s,[cmd.table,...secondary]);checkPartyLimit(b,config,[cmd.table,...secondary],people,r,cmd.recommendation?.backupFormation);const warnings=risk(s,sh,r.id,cmd.at).filter(x=>!list(cmd.confirmedRiskIds).includes(x.id));if(warnings.length)fail('Double-seat / large-party confirmation is required.','GUARD');const p={id:cmd.id,version:1,primary:cmd.table,secondary,people,rowId:r.id,shift:sh,at:cmd.at,...(cmd.reservationId?{reservationId:cmd.reservationId}:{})};rememberPassedTurns(s,sh,r,config,cmd.at);r.entries.push({id:p.id,kind:'party',primary:p.primary,secondary,people,at:cmd.at,...(cmd.reservationId?{reservationId:cmd.reservationId}:{})});autoSkip(r,sh);checkSpace(r);occupy(s,p);break;}
+ case 'SEAT':{if(cmd.recommendation){const expected=cmd.recommendation;if(s.revision!==expected.revision||b.formation!==expected.formation||JSON.stringify(config.formations?.[b.formation]||{})!==expected.formationKey)fail('Floor or rotation changed. Review the updated recommendation.','CONFLICT');if(expected.sectionRulesKey!==undefined&&expected.sectionRulesKey!==JSON.stringify(config.sectionRules||{}))fail('Section rules changed. Review the updated recommendation.','CONFLICT');if(expected.backupFormation&&JSON.stringify(config.formations?.[expected.backupFormation])!==expected.backupFormationKey)fail('Backup formation changed. Review the updated recommendation.','CONFLICT');for(const id of [cmd.table,...list(cmd.secondary)])if(b.assignments[id]!==expected.assignments?.[id]||s.tables[id]?.status!=='ready'||s.tables[id]?.partyId)fail('Table assignment or availability changed. Review the updated recommendation.','CONFLICT');}if(cmd.reservationId&&Object.values(s.parties).some(p=>p.reservationId===cmd.reservationId))fail('This reservation is already seated.','CONFLICT');const r=rowOf(s,sh,cmd.rowId);if(r.cut)fail('This employee is CUT.');const people=countPeople(cmd.people),secondary=list(cmd.secondary);available(s,[cmd.table,...secondary]);checkPartyLimit(b,config,[cmd.table,...secondary],people,r,cmd.recommendation?.backupFormation);const warnings=risk(s,sh,r.id,cmd.at).filter(x=>!list(cmd.confirmedRiskIds).includes(x.id));if(warnings.length)fail('Double-seat / large-party confirmation is required.','GUARD');const p={id:cmd.id,version:1,primary:cmd.table,secondary,people,rowId:r.id,shift:sh,at:cmd.at,...(cmd.reservationId?{reservationId:cmd.reservationId}:{})};rememberPassedTurns(s,sh,r,config,cmd.at);r.entries.push({id:p.id,kind:'party',primary:p.primary,secondary,people,at:cmd.at,...(cmd.reservationId?{reservationId:cmd.reservationId}:{})});autoSkip(r,sh);checkSpace(r);occupy(s,p);break;}
  case 'TABLE_HOLD':{const t=s.tables[cmd.table];if(!t)fail('Choose a table.');if(cmd.reserved){if(t.status!=='ready'||t.partyId)fail('This table is no longer READY.','CONFLICT');s.tables[cmd.table]={status:'reserved',holdShift:sh,heldAt:cmd.at};}else{if(t.status!=='reserved'||t.partyId)fail('This table is no longer RESERVED.','CONFLICT');s.tables[cmd.table]={status:'ready'};}break;}
  case 'STATUS':{if(!['ready','cleaning'].includes(cmd.status))fail('Invalid status.');const p=partyFor(s,cmd.table);if(cmd.expectedPartyId!==undefined&&(p?.id||'')!==cmd.expectedPartyId)fail('Party changed. Repeat the voice command.','CONFLICT');if(p){if(cmd.partyVersion!=null&&(p.version||1)!==cmd.partyVersion)fail('This party was edited on another tablet. Reopen it.','CONFLICT');if(cmd.partyId&&p.id!==cmd.partyId)fail('Party changed.','CONFLICT');release(s,p,cmd.status);}else{if(!s.tables[cmd.table])fail('Choose a table.');s.tables[cmd.table]={status:cmd.status};}break;}
  case 'DELETE':{const p=active(s,cmd),r=rowOf(s,p.shift,p.rowId),index=r.entries.findIndex(e=>e.id===p.id);if(index<0)fail('Party is not on this Board.');s.undo[cmd.id]={id:cmd.id,party:copy(p),entry:copy(r.entries[index]),index:r.entries.filter(e=>e.kind!=='auto').findIndex(e=>e.id===p.id),at:cmd.at,shift:p.shift};r.entries.splice(index,1);autoSkip(r,p.shift);release(s,p);for(const id of Object.keys(s.undo).sort((a,z)=>s.undo[z].at-s.undo[a].at).slice(25))delete s.undo[id];break;}
@@ -254,9 +274,9 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  s.beeperHistory=retainBeeperHistory(history,now);s.beeperHistoryStartedAt=historyStartedAt;
  s.tableHistory=Object.fromEntries(Object.entries(tableLog).filter(([,e])=>e.day===s.day));
  const tableChanges=tableHistoryChanges(tableBefore,s,cmd,tableRestore);if(tableChanges.length)s.tableHistory[cmd.id]={day:s.day,at:cmd.at,sequence:Object.keys(s.tableHistory).length+1,changes:tableChanges};
- s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];return validate(s);
+ s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];for(const board of Object.values(s.shifts))syncSectionAssignments(board,config);return validate(s);
 }
-return {sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
+return {rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
 });
 
 

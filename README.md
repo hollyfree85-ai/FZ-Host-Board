@@ -1,3 +1,9 @@
+## 1.2.82 — shared 8-server tables and Section 3
+
+In `8 SERVER`, H1–H4 and M1–M2 are shared by Section 1 and BAR and display `1/Bar`. Both employees receive eligible recommendations; seating records and rotation remain with the chosen employee. BAR retains the five-guest limit.
+
+`config.sectionRules` (seed: `dist/seed-section-rules.json`) fixes E1/F1 to Section 3 in every formation. In the combined `2 SERVER` formation they belong to the `3-5` employee while displaying Section 3. In `2 SERVER - 2`, Section 3 remains unstaffed. Formation changes preserve seated parties and their serving employee.
+
 # FZ Host Board
 
 ## v1.2.81 — Single six-server formation

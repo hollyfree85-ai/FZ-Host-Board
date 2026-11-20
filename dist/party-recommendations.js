@@ -68,13 +68,17 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  for(const option of options){
   const ids=option.tables;if(option.max<people||!ids.every(available))continue;
   if(ids.filter(id=>/^C/.test(id)).length>1&&joinedD||ids.filter(id=>/^D/.test(id)).length>1&&joinedC)continue;
-  const assigned=ids.map(id=>rowMap.get(board.assignments?.[id]));if(assigned.some(r=>!r))continue;
+  const owners=ids.map(id=>C.tableRows(board,config,id).filter(r=>rowMap.has(r.id)));if(owners.some(rs=>!rs.length))continue;
+  const common=owners[0].filter(row=>owners.every(rs=>rs.some(r=>r.id===row.id)));
+  const alternatives=common.length?common.map(row=>ids.map(()=>row)):[owners.map(rs=>rs.slice().sort((a,b)=>rotationIndex.get(a.id)-rotationIndex.get(b.id))[0])];
+  for(const assigned of alternatives){
   const sections=ids.map((id,i)=>sectionFor(board,config,id,assigned[i]));if(sections.some(s=>!s))continue;
   const uniqueRows=[...new Map(assigned.map(r=>[r.id,r])).values()].sort((a,b)=>rotationIndex.get(a.id)-rotationIndex.get(b.id));
   const uniqueSections=[...new Set(sections)],crossSection=uniqueSections.length>1||uniqueRows.length>1;
   if(crossSection){if(!canCrossSections(people))continue;result.crossSectionCount++;if(!allowCrossSection)continue;}
   const row=uniqueRows[0],load=loads.get(row.id),returnTurn=deferred.get(row.id),max=Math.min(option.max,C.partyLimit(board,config,ids,row));if(people>max)continue;
   result.candidates.push({tables:[...ids],booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',min:Math.min(option.min,max),max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),returnPriority:!!returnTurn?.eligible,returnAt:returnTurn?.at||0,returnReason:returnTurn?.reason||'',...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
+  }
  }
  // 1–4 guests follow the exact Board queue. Parties of 5+ keep the nearest
  // turn count, then the owner's area order and actual workload before section order.
@@ -93,7 +97,7 @@ function search(args){
  const currentTables=new Set(Object.values(current).flatMap(C.list));
  const held=new Set(Object.values(records||{}).filter(r=>r&&r.table&&r.date===state.day&&!/cancel|complete|seated|no.?show|deleted/i.test(r.status||'')&&C.reservationTime(r.date,r.time)+3600000>now).flatMap(r=>[r.table,...C.list(r.secondary)]));
  const available=id=>known.has(id)&&state.tables?.[id]?.status==='ready'&&!state.tables[id].partyId&&!held.has(id);
- const inactive=id=>!currentTables.has(id)||!activeMap.has(board.assignments?.[id]);
+ const inactive=id=>!currentTables.has(id)||!C.tableRows(board,config,id).some(r=>activeMap.has(r.id));
  const joined=prefix=>Object.values(state.parties||{}).some(p=>C.members(p).filter(id=>id.startsWith(prefix)).length>1);
  const joinedC=joined('C'),joinedD=joined('D');
  const serverChoices=activeRows.flatMap((row,i)=>{

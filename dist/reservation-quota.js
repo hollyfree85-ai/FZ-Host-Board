@@ -13,6 +13,7 @@ function sections(live,config,shift,ignoreCut=false){
  const board=live?.shifts?.[shift],form=config?.formations?.[board?.formation];if(!form)return null;
  const out=new Map();for(const[section,ids]of Object.entries(form))for(const id of C.list(ids))if(!/^bar/i.test(id))out.set(id,section);
  for(const[id,rowId]of Object.entries(board.assignments||{})){const row=C.list(board.rows).find(r=>r.id===rowId);if(row){const section=P.sectionFor(board,config,id,row);if(section)out.set(id,section);if(row.cut&&!ignoreCut)out.delete(id);}}
+ for(const id of new Set(Object.values(form).flatMap(C.list)))if(C.sharedSections(board,config,id).length){const owner=C.tableRows(board,config,id,ignoreCut).find(r=>C.rowHasSection(r,'1'));if(owner)out.set(id,'1');else out.delete(id);}
  // Online reservations start at six guests, beyond every BAR section table.
  for(const[id,section]of out)if(C.isBarSection(section)||/^bar/i.test(id))out.delete(id);
  return out;
