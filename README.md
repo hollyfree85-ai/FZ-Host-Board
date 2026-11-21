@@ -1,3 +1,7 @@
+## 1.2.83 — unlimited reservation quotas
+
+Removed numeric guest quotas from every reservation time window, including host create/edit/restore and online booking. Suitable table capacity, seating hours, atomic saves and duplicate protection remain in place.
+
 ## 1.2.82 — shared 8-server tables and Section 3
 
 In `8 SERVER`, H1–H4 and M1–M2 are shared by Section 1 and BAR and display `1/Bar`. Both employees receive eligible recommendations; seating records and rotation remain with the chosen employee. BAR retains the five-guest limit.

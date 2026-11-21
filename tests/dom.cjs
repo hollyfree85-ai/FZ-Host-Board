@@ -258,9 +258,14 @@ test('Floor party deletion has no reservation-delete prompts and linked quota st
  try{await p.w.FZHostApp.send('SEAT',{table:'B2',rowId:'aj',people:6,secondary:[],reservationId:'q'});const id=p.w.FZHostApp.state.tables.B2.partyId;let calls=0;p.w.confirm=()=>{calls++;return false;};const result=await p.w.FZHostApp.send('DELETE',{table:'B2',partyId:id});assert.equal(calls,0);assert.equal(shared.data.app.reservations.q.status,'completed');await p.w.FZHostApp.send('UNDO',{undoId:result.id});assert.equal(shared.data.app.reservations.q.status,'seated');assert.equal(shared.data.app.live.tables.B2.partyId,id);assert.deepEqual(p.errors,[]);
  }finally{await pause(40);p.dom.window.close();}
 });
-test('host reservation create and Undo Delete must respect the latest shared guest quota',async()=>{
+test('host reservation create and Undo Delete still require suitable table capacity',async()=>{
  const shared=fixture();shared.data.app.config.formations.test={'2':['B2','B3']};const date=shared.data.app.live.day;shared.data.app.reservations={full:{name:'Existing',date,time:'18:00',people:50,status:'scheduled'},old:{name:'Restore',date,time:'18:00',people:6,status:'deleted',deletedAt:NOW-60000}};const p=await page(shared);
  try{p.w.FZHostApp.operation('reservations');const d=p.w.document;d.getElementById('resName').value='New';d.getElementById('resTime').value='18:00';d.getElementById('resPeople').value='6';d.getElementById('reservationForm').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));await pause(70);assert.equal(Object.keys(shared.data.app.reservations).length,2);p.w.document.getElementById('undoReservationDelete').click();p.w.document.querySelector('[data-res-restore="old"]').click();await pause(60);assert.equal(shared.data.app.reservations.old.status,'deleted');assert.deepEqual(p.errors,[]);
+ }finally{await pause(40);p.dom.window.close();}
+});
+test('host reservation create and Undo Delete work above the former numeric quota',async()=>{
+ const shared=fixture();shared.data.app.config.formations.test={'2':['B2','B3']};const date=shared.data.app.live.day;shared.data.app.reservations={full:{name:'Existing',date,time:'18:00',people:50,status:'seated'},old:{name:'Restore',date,time:'18:00',people:6,status:'deleted',deletedAt:NOW-60000}};const p=await page(shared);
+ try{p.w.FZHostApp.operation('reservations');const d=p.w.document;d.getElementById('resName').value='New';d.getElementById('resTime').value='18:00';d.getElementById('resPeople').value='6';d.getElementById('reservationForm').dispatchEvent(new p.w.Event('submit',{bubbles:true,cancelable:true}));await waitFor(()=>Object.keys(shared.data.app.reservations).length===3,'reservation above former quota');p.w.document.getElementById('undoReservationDelete').click();p.w.document.querySelector('[data-res-restore="old"]').click();await waitFor(()=>shared.data.app.reservations.old.status==='scheduled','restore above former quota');assert.deepEqual(p.errors,[]);
  }finally{await pause(40);p.dom.window.close();}
 });
 

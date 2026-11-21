@@ -1,12 +1,12 @@
-## Quota and table availability
+## Unlimited reservation quotas and table availability
 
-All active online and host-entered reservations count their guests, including seated reservations. Only completed, deleted, cancelled or no-show records release their own guest count. No historical records are migrated or deleted by this release.
+Online and host-entered reservations have no numeric guest quota in any time window. Guest totals are informational only. Completed, deleted, cancelled or no-show records release their table requirements. No historical records are migrated or deleted by this release.
 
-Sunday–Thursday: 3–5 PM 60 guests, 5–7 PM 50, 7–9 PM 50. Friday/Saturday: 3–5 PM 60, 5–7 PM 50, 7–9 PM 40, 9–10 PM 60. The last window includes the existing last-seating grace (9:20 PM / 10:20 PM); before 3 PM there is no numeric cap, but capacity still applies. Windows start inclusively and end exclusively except the last-seating minute.
+All former 40/50/60-guest limits have been removed. Time windows still group table requirements, with the existing last seating at 9:20 PM Sunday–Thursday and 10:20 PM Friday/Saturday. Windows start inclusively and end exclusively except the last-seating minute.
 
 Today requires actual READY tables in the selected AM/PM formation. Seated, cleaning and reserved tables cannot be promised to a new guest. Existing unseated reservations in that window are packed into disjoint approved combinations; parties of up to 12 stay in one section, while parties of 13 or more may span sections; overdue uncompleted bookings also retain their table needs. Linked seated parties already occupy the Floor and are not subtracted twice. Future dates use the current formation plan, not today's occupied-table status. This does not guarantee a specific table on a future day. Unknown or unavailable capacity fails closed; no new combinations are inferred, and bar stools are never offered for a party.
 
-GET /api/availability returns only aggregate capacity and a message, never guest details. POST /api/book rechecks the complete current snapshot under Firebase ETag compare-and-swap. A failed save cannot show confirmation. Existing request fingerprints still make retries idempotent. The host app uses the same quota engine for new/edited/restored reservations and three acknowledgements only before DELETE RESERVATION. Release of a linked seated party and reservation status changes are atomic. Firebase remains Spark; no new SMS provider or paid service is enabled.
+GET /api/availability returns only aggregate capacity and a message, never guest details. POST /api/book rechecks the complete current snapshot under Firebase ETag compare-and-swap. A failed save cannot show confirmation. Existing request fingerprints still make retries idempotent. The host app uses the same table-availability engine for new/edited/restored reservations and three acknowledgements only before DELETE RESERVATION. Release of a linked seated party and reservation status changes are atomic. Firebase remains Spark; no new SMS provider or paid service is enabled.
 
 
 ## Approved large combinations (November 18, 2026)
@@ -36,7 +36,7 @@ stays attached until acknowledgement and is removed on success or failure. A
 standalone Firebase `get()` is insufficient: the shipped SDK removes that root
 cache before the first transaction callback, which can then receive `null` even
 when child listeners show LIVE data. The same correction covers linked-reservation
-seating operations. Quota and capacity checks still run against the current
+seating operations. Table capacity checks still run against the current
 transaction snapshot, preserving concurrent online arrivals and unrelated data.
 
 The manual form shows SAVING while pending, retains its draft on failure and
