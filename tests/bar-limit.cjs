@@ -49,8 +49,8 @@ test('existing oversized BAR records remain intact and can become READY without 
  const f=fixture();f.state=seat(f);const p=C.partyFor(f.state,'H2');p.people=6;f.state.shifts.PM.rows.find(r=>r.id==='BAR').entries[0].people=6;
  const next=C.reduce(f.state,command('STATUS',{table:'H2',status:'ready'}),f.config);assert.equal(next.tables.H2.status,'ready');assert.equal(next.shifts.PM.rows.find(r=>r.id==='BAR').entries[0].people,6);
 });
-test('online quota cannot promise BAR dining tables for reservations of six or more, today or future',()=>{
+test('reservation intake accepts six guests with BAR-only staffing without seating them',()=>{
  const f=fixture();f.config.formations.test={BAR:['H2','H3','H4','M1','M2','Bar 1']};f.state.shifts.PM.assignments=Object.fromEntries(f.config.formations.test.BAR.map(id=>[id,'BAR']));
- for(const date of ['2026-11-18','2026-11-19']){const result=Q.assess({config:f.config,live:f.state,date,time:'18:00',people:6,now:at});assert.equal(result.available,false);}
+ const before=JSON.stringify(f.state);for(const date of ['2026-11-18','2026-11-19']){const result=Q.assess({config:f.config,live:f.state,date,time:'18:00',people:6,now:at});assert.equal(result.available,true);}assert.equal(JSON.stringify(f.state),before);assert.throws(()=>seat(f,{people:6}),/BAR.*maximum of 5/);
  f.config.formations.test['1']=['L5'];f.state.shifts.PM.assignments.L5='1';assert.equal(Q.assess({config:f.config,live:f.state,date:'2026-11-18',time:'18:00',people:6,now:at}).available,true);
 });

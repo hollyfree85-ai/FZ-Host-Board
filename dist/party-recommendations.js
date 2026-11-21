@@ -87,8 +87,8 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  if(!result.candidates.length)result.reason=canCrossSections(people)&&allowCrossSection?'No suitable READY tables or approved combinations for this party.':'No suitable READY tables in one section for this party.';
  return result;
 }
-// Host-only overflow suggestions. Guest booking capacity still uses the active
-// formation; a closed section is not promised online without a host decision.
+// Host-only seating suggestions. Reservations do not claim a table; a closed
+// section still needs an active server before the host can seat guests there.
 function search(args){
  const report=recommend(args);
  const {state,config,shift='PM',people,records={},now=Date.now()}=args,board=state?.shifts?.[shift];

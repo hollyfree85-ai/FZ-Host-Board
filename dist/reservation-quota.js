@@ -1,52 +1,21 @@
-(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./core.js'):root.HostCore,typeof module==='object'&&module.exports?require('./party-recommendations.js'):root.PartyRecommendations);if(typeof module==='object'&&module.exports)module.exports=api;else root.ReservationQuota=api;})(globalThis,function(C,P){
+(function(root,factory){const api=factory(typeof module==='object'&&module.exports?require('./core.js'):root.HostCore);if(typeof module==='object'&&module.exports)module.exports=api;else root.ReservationQuota=api;})(globalThis,function(C){
 'use strict';
 const released=r=>!r||/^(done|completed?|deleted|cancelled|canceled|no.?show)$/i.test(r.status||'');
 function windowFor(date,time){
  const late=[5,6].includes(new Date(date+'T12:00:00Z').getUTCDay());
- // Time windows group table demand only; reservation counts have no quota.
+ // Keep seating hours and informational totals; booking intake has no capacity gate.
  const ranges=late?[['11:00','15:00'],['15:00','17:00'],['17:00','19:00'],['19:00','21:00'],['21:00','22:21']]:[['11:00','15:00'],['15:00','17:00'],['17:00','19:00'],['19:00','21:21']];
  const range=ranges.find(([start,end])=>time>=start&&time<end);if(!range)return null;
  const [start,end]=range,format=value=>{const [hour,minute]=value.split(':').map(Number);return (hour%12||12)+':'+String(minute).padStart(2,'0')+(hour>=12?' PM':' AM');};return {id:date+'_'+start,start,end,limit:null,label:format(start)+' – '+format(end==='22:21'?'22:20':end==='21:21'?'21:20':end)};
 }
 function linkedParty(live,id,r){return Object.values(live?.parties||{}).find(p=>p.reservationId===id||r?.partyId&&p.id===r.partyId);}
 function usage(records,date,time){const slot=windowFor(date,time);let used=0;const ids=[];if(slot)for(const[id,r]of Object.entries(records||{}))if(!released(r)&&r.date===date&&windowFor(r.date,r.time)?.id===slot.id){used+=Math.max(0,Number(r.people)||0);ids.push(id);}return {slot,used,remaining:null,ids};}
-function sections(live,config,shift,ignoreCut=false){
- const board=live?.shifts?.[shift],form=config?.formations?.[board?.formation];if(!form)return null;
- const out=new Map();for(const[section,ids]of Object.entries(form))for(const id of C.list(ids))if(!/^bar/i.test(id))out.set(id,section);
- for(const[id,rowId]of Object.entries(board.assignments||{})){const row=C.list(board.rows).find(r=>r.id===rowId);if(row){const section=P.sectionFor(board,config,id,row);if(section)out.set(id,section);if(row.cut&&!ignoreCut)out.delete(id);}}
- for(const id of new Set(Object.values(form).flatMap(C.list)))if(C.sharedSections(board,config,id).length){const owner=C.tableRows(board,config,id,ignoreCut).find(r=>C.rowHasSection(r,'1'));if(owner)out.set(id,'1');else out.delete(id);}
- // Online reservations start at six guests, beyond every BAR section table.
- for(const[id,section]of out)if(C.isBarSection(section)||/^bar/i.test(id))out.delete(id);
- return out;
-}
-function assess({records={},live,config,date,time,people,excludeId='',now=Date.now()}){
- const u=usage(Object.fromEntries(Object.entries(records).filter(([id])=>id!==excludeId)),date,time),base={window:u.slot,used:u.used,remaining:u.remaining,limit:u.slot?.limit??null,available:false};
- if(!Number.isInteger(people)||people<6||people>120||!u.slot)return {...base,reason:'invalid',message:'Choose a valid date, time and party size of 6 or more.'};
- const today=date===C.dayAt(now),shift=time<'15:00'?'AM':'PM',section=sections(live,config,shift,!today);
- if(!section||!Array.isArray(config?.tables)||today&&live?.day!==date)return {...base,reason:'floor',message:'Table availability is not ready yet. Please contact our host team or try again shortly.'};
- const known=new Set(config.tables.map(t=>t.id)),free=new Set([...section.keys()].filter(id=>known.has(id)&&P.capacityFor(id)&&(!today||live.tables?.[id]?.status==='ready'&&!live.tables[id].partyId)));
- const blockedC=today&&Object.values(live.parties||{}).some(p=>C.members(p).filter(id=>/^D/.test(id)).length>1),blockedD=today&&Object.values(live.parties||{}).some(p=>C.members(p).filter(id=>/^C/.test(id)).length>1);
- const options=[...free].map(id=>({tables:[id],max:P.capacityFor(id).max})).concat(P.groups).filter(o=>o.tables.every(id=>free.has(id))&&!(blockedC&&o.tables.filter(id=>/^C/.test(id)).length>1)&&!(blockedD&&o.tables.filter(id=>/^D/.test(id)).length>1)).map(o=>({...o,crossSection:new Set(o.tables.map(id=>section.get(id))).size>1}));
- const availableSeats=P.totalCapacity(free,options);
- const demands=[];
- for(const[id,r]of Object.entries(records)){
-  if(id===excludeId||released(r)||r.date!==date)continue;
-  const same=windowFor(r.date,r.time)?.id===u.slot.id,overdue=today&&C.reservationTime(r.date,r.time)<=now&&r.time<u.slot.start;
-  if(!same&&!overdue)continue;
-  // Seated parties are already removed from READY capacity; never count twice.
-  if(today&&(linkedParty(live,id,r)||r.status==='seated'))continue;
-  const pinned=r.table?[r.table,...C.list(r.secondary)]:[];
-  demands.push({people:Number(r.people)||0,pinned});
- }
- demands.push({people,pinned:[]});
- const full={...base,availableSeats,reason:'tables',message:'Reservations are temporarily full: no suitable READY tables are available for this party. Please choose another time or contact our host team.'};
- if(demands.reduce((n,d)=>n+d.people,0)>availableSeats)return full;
- const choices=demands.map(d=>options.filter(o=>o.max>=d.people&&(!o.crossSection||P.canCrossSections(d.people))&&(!d.pinned.length||d.pinned.length===o.tables.length&&d.pinned.every(t=>o.tables.includes(t)))).sort((a,b)=>a.max-b.max||a.tables.length-b.tables.length));
- if(choices.some(x=>!x.length))return full;
- choices.sort((a,b)=>a.length-b.length);let visits=0;const memo=new Set();
- function fit(i,used){if(i===choices.length)return true;if(++visits>30000)return false;const key=i+':'+[...used].sort().join(',');if(memo.has(key))return false;for(const o of choices[i])if(o.tables.every(id=>!used.has(id))&&fit(i+1,new Set([...used,...o.tables])))return true;memo.add(key);return false;}
- if(!fit(0,new Set()))return full;
- return {...base,available:true,availableSeats,reason:'available',message:today?'Space is currently available. READY tables will be checked again when you confirm.':'Space is available in the current formation plan. Tables will be checked again when you confirm.'};
+function assess({records={},date,time,people,excludeId=''}){
+ const u=usage(Object.fromEntries(Object.entries(records).filter(([id])=>id!==excludeId)),date,time),base={window:u.slot,used:u.used,remaining:null,limit:null,available:false};
+ if(!Number.isInteger(people)||people<6||people>120||!u.slot||!Number.isFinite(C.reservationTime(date,time)))return {...base,reason:'invalid',message:'Choose a valid date, time and party size of 6 or more.'};
+ // Reservations record intent. READY tables, combinations and servers are checked
+ // when the host actually seats the party, never while saving a reservation.
+ return {...base,available:true,reason:'available',message:'Reservations are open for this time. Our host team will arrange your seating on arrival.'};
 }
 function reduceBoard(root,cmd,now){
  if(!root?.live||!root.config)throw Error('Current Board is unavailable.');
@@ -70,7 +39,7 @@ function reduceBoard(root,cmd,now){
 }
 function confirmReservationDelete(confirm,subject){
  const messages=[`1 OF 3 — DELETE RESERVATION\n\n${subject}\n\nDelete this reservation? Verify that it was cancelled or that the party has finished.`,
- `2 OF 3 — TABLE STATUS\n\nDeleting this reservation removes its table requirements. If the party used tables, confirm ALL of them are READY.`,
+ `2 OF 3 — TABLE STATUS\n\nIf the party used tables, confirm ALL of them are READY. Otherwise, verify that the booking is cancelled.`,
  `3 OF 3 — MANAGER ACKNOWLEDGEMENT\n\nPlease consult the manager before continuing. Select OK to acknowledge that you have checked with the manager and confirmed the tables are ready (or the booking is cancelled).`];
  return messages.every(message=>confirm(message));
 }

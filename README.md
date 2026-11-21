@@ -1,3 +1,7 @@
+## 1.2.84 — accept reservations independently of Floor capacity
+
+Save, edit and restore reservations without READY-table, formation, combination or existing-booking capacity gates. Online booking follows the same policy. Table suitability and ownership are still validated when seating guests.
+
 ## 1.2.83 — unlimited reservation quotas
 
 Removed numeric guest quotas from every reservation time window, including host create/edit/restore and online booking. Suitable table capacity, seating hours, atomic saves and duplicate protection remain in place.

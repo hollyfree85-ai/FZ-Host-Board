@@ -12,8 +12,8 @@ function pendingRetry(){return pending?.uncertain&&pending.signature===JSON.stri
 function submitState(){el('submit').disabled=saving||!availability?.available&&!pendingRetry();if(!saving)el('submit').textContent=pendingRetry()?'CHECK MY RESERVATION':'Confirm reservation →';}
 async function checkAvailability(){
  const values=selection(),key=JSON.stringify(values),sequence=++availabilitySequence;availability=null;submitState();
- if(!values.date||!values.time||!Number.isInteger(values.people)||values.people<6){availabilityStatus('Choose your date, time and number of guests to check availability.','pending');return;}
- availabilityStatus('Checking table availability…','pending');
+ if(!values.date||!values.time||!Number.isInteger(values.people)||values.people<6){availabilityStatus('Choose your date, time and number of guests to check your booking details.','pending');return;}
+ availabilityStatus('Checking booking time…','pending');
  try{const response=await fetch(API+'/api/availability?'+new URLSearchParams(values),{cache:'no-store'}),result=await response.json();if(sequence!==availabilitySequence||key!==JSON.stringify(selection()))return;
  if(!response.ok)throw Error(result.error||'Availability could not be checked. Please try again.');
  availability=result;availabilityStatus(result.message,result.available?'available':'full');

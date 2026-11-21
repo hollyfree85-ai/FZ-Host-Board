@@ -1,13 +1,12 @@
-## Unlimited reservation quotas and table availability
+## Unlimited reservations (v1.2.84)
 
-Online and host-entered reservations have no numeric guest quota in any time window. Guest totals are informational only. Completed, deleted, cancelled or no-show records release their table requirements. No historical records are migrated or deleted by this release.
+Host and online reservations can be saved, edited and restored without any numeric quota, READY-table requirement, formation requirement or table-combination capacity gate. Existing reservations do not close a time slot. Guest totals are informational only; records are retained without migration.
 
-All former 40/50/60-guest limits have been removed. Time windows still group table requirements, with the existing last seating at 9:20 PM Sunday–Thursday and 10:20 PM Friday/Saturday. Windows start inclusively and end exclusively except the last-seating minute.
+Reservation intake keeps the existing party-size validation (6–120 whole guests), contact validation and seating hours. The last seating remains 9:20 PM Sunday–Thursday and 10:20 PM Friday/Saturday. Time windows only group informational totals.
 
-Today requires actual READY tables in the selected AM/PM formation. Seated, cleaning and reserved tables cannot be promised to a new guest. Existing unseated reservations in that window are packed into disjoint approved combinations; parties of up to 12 stay in one section, while parties of 13 or more may span sections; overdue uncompleted bookings also retain their table needs. Linked seated parties already occupy the Floor and are not subtracted twice. Future dates use the current formation plan, not today's occupied-table status. This does not guarantee a specific table on a future day. Unknown or unavailable capacity fails closed; no new combinations are inferred, and bar stools are never offered for a party.
+GET /api/availability validates booking details without consulting Floor capacity. POST /api/book and host edits still save against the latest Firebase Board revision, preserve concurrent changes and confirm only after an acknowledged save. Duplicate retries remain idempotent. Deletion, restoration and SMS handling keep their existing behavior.
 
-GET /api/availability returns only aggregate capacity and a message, never guest details. POST /api/book rechecks the complete current snapshot under Firebase ETag compare-and-swap. A failed save cannot show confirmation. Existing request fingerprints still make retries idempotent. The host app uses the same table-availability engine for new/edited/restored reservations and three acknowledgements only before DELETE RESERVATION. Release of a linked seated party and reservation status changes are atomic. Firebase remains Spark; no new SMS provider or paid service is enabled.
-
+READY status, suitable approved combinations, server ownership, section rules and competing table claims are checked when the host seats the guest through Floor/PARTY or reservation ACCEPT. Recording a reservation does not seat anyone or consume a table. No customer records or runtime credentials are changed by this release.
 
 ## Approved large combinations (November 18, 2026)
 
@@ -25,7 +24,7 @@ GET /api/availability returns only aggregate capacity and a message, never guest
 | M1 + M2 + H1 through H4 | 30–34 |
 | B1 + B2 + B3 | 15 |
 
-Previously approved combinations remain available. These are limits for the complete listed group, not permission to generate arbitrary adjacent combinations. Combined capacity overrides individual seat sums. Overlapping groups cannot contribute capacity twice or host two reservations simultaneously. Floor PARTY includes eligible cross-section options automatically for 13+ guests, prefers same-section matches, identifies every participating server and shows the lead server before ACCEPT. Acceptance rechecks the latest Floor and saves all member tables in a single Board operation.
+Previously approved combinations remain available. These are limits for the complete listed group, not permission to generate arbitrary adjacent combinations. Combined capacity overrides individual seat sums. Overlapping groups cannot contribute capacity twice or seat two parties simultaneously. Floor PARTY includes eligible cross-section options automatically for 13+ guests, prefers same-section matches, identifies every participating server and shows the lead server before ACCEPT. Acceptance rechecks the latest Floor and saves all member tables in a single Board operation.
 
 ### Manual reservation saves and undo recovery (v1.2.75)
 
@@ -36,8 +35,9 @@ stays attached until acknowledgement and is removed on success or failure. A
 standalone Firebase `get()` is insufficient: the shipped SDK removes that root
 cache before the first transaction callback, which can then receive `null` even
 when child listeners show LIVE data. The same correction covers linked-reservation
-seating operations. Table capacity checks still run against the current
+seating operations. Reservation detail validation still runs against the current
 transaction snapshot, preserving concurrent online arrivals and unrelated data.
+Physical table checks apply when seating, not when recording a reservation.
 
 The manual form shows SAVING while pending, retains its draft on failure and
 shows persistent feedback inside the reservation dialog. Toasts appear within the
