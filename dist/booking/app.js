@@ -6,12 +6,16 @@ const parts=Object.fromEntries(dateFormat.formatToParts(new Date()).map(x=>[x.ty
 el('date').min=parts.year+'-'+parts.month+'-'+parts.day;
 let saving=false,confirmed=null,details=null,availability=null,availabilitySequence=0,availabilityTimer;
 const selection=()=>({date:el('date').value,time:el('time').value,people:Number(el('people').value)});
+const thanksgivingDate='2026-11-26';
+const closedMessage='We are closed for Thanksgiving on Thursday, November 26. Please choose another date.';
+const thanksgivingSelected=()=>el('date').value===thanksgivingDate;
 function availabilityStatus(message,state){const box=el('availability');box.textContent=message;box.className='availability '+state;box.hidden=false;}
 const formData=()=>({name:el('name').value.trim(),people:Number(el('people').value),date:el('date').value,time:el('time').value,phone:el('phone').value.trim(),email:el('email').value.trim(),note:el('note').value.trim(),consent:el('consent').checked,website:el('website').value});
 function pendingRetry(){return pending?.uncertain&&pending.signature===JSON.stringify(formData());}
-function submitState(){el('submit').disabled=saving||!availability?.available&&!pendingRetry();if(!saving)el('submit').textContent=pendingRetry()?'CHECK MY RESERVATION':'Confirm reservation →';}
+function submitState(){el('submit').disabled=saving||thanksgivingSelected()||!availability?.available&&!pendingRetry();if(!saving)el('submit').textContent=pendingRetry()?'CHECK MY RESERVATION':'Confirm reservation →';}
 async function checkAvailability(){
  const values=selection(),key=JSON.stringify(values),sequence=++availabilitySequence;availability=null;submitState();
+ if(thanksgivingSelected()){availabilityStatus(closedMessage,'full');return;}
  if(!values.date||!values.time||!Number.isInteger(values.people)||values.people<6){availabilityStatus('Choose your date, time and number of guests to check your booking details.','pending');return;}
  availabilityStatus('Checking booking time…','pending');
  try{const response=await fetch(API+'/api/availability?'+new URLSearchParams(values),{cache:'no-store'}),result=await response.json();if(sequence!==availabilitySequence||key!==JSON.stringify(selection()))return;
@@ -20,7 +24,7 @@ async function checkAvailability(){
  }catch(error){if(sequence!==availabilitySequence)return;availabilityStatus(error.message==='Failed to fetch'?'Unable to check availability. Please reconnect and try again.':error.message,'full');}
  finally{if(sequence===availabilitySequence)submitState();}
 }
-function scheduleAvailability(){clearTimeout(availabilityTimer);++availabilitySequence;availability=null;submitState();availabilityTimer=setTimeout(checkAvailability,350);}
+function scheduleAvailability(){clearTimeout(availabilityTimer);++availabilitySequence;availability=null;submitState();if(thanksgivingSelected()){availabilityStatus(closedMessage,'full');return;}availabilityTimer=setTimeout(checkAvailability,350);}
 for(const id of ['date','time','people'])el(id).addEventListener('input',scheduleAvailability);
 for(const id of ['date','time','people'])el(id).addEventListener('change',scheduleAvailability);
 el('check-availability').onclick=()=>void checkAvailability();
@@ -34,7 +38,7 @@ let pending=storage.read();submitState();
 for(const id of ['name','phone','email','note','consent'])el(id).addEventListener('input',submitState);
 const uuid=()=>crypto.randomUUID?crypto.randomUUID():([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
 form.addEventListener('submit',async event=>{
- event.preventDefault();if(saving)return;if(!availability?.available&&!pendingRetry()){await checkAvailability();if(!availability?.available&&!pendingRetry())return;}
+ event.preventDefault();if(saving)return;if(thanksgivingSelected()){availabilityStatus(closedMessage,'full');return;}if(!availability?.available&&!pendingRetry()){await checkAvailability();if(!availability?.available&&!pendingRetry())return;}
  const data=formData();
  if(!data.phone&&!data.email){el('form-error').textContent='Please provide a phone number or email address.';el('form-error').hidden=false;el('phone').focus();return;}
  const signature=JSON.stringify(data);
