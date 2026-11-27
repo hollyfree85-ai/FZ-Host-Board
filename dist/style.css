@@ -304,7 +304,7 @@ nav{grid-template-columns:repeat(5,minmax(0,1fr))}nav button{min-width:0;padding
   font-size: clamp(1.6rem, 2.7vw, 3.4rem);
   font-weight: 750;
 }
-#messageForm select, #messageSend {
+#messageForm select, #messageForm button {
   width: 100%;
   min-height: 1.95em;
   height: auto;
@@ -313,8 +313,13 @@ nav{grid-template-columns:repeat(5,minmax(0,1fr))}nav button{min-width:0;padding
   font-weight: 800;
 }
 #messageForm option { font-size: clamp(1.2rem, 2.25vw, 2.7rem); }
-#messageSend {
+#messageForm .message-actions {
   grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(10px, 2vw, 32px);
+}
+#messageForm button {
   font-size: clamp(2.2rem, 4.2vw, 5.2rem);
 }
 #messageStatus {
@@ -322,7 +327,7 @@ nav{grid-template-columns:repeat(5,minmax(0,1fr))}nav button{min-width:0;padding
   font-size: clamp(1.35rem, 2.3vw, 3rem);
   font-weight: 700;
 }
-#messageSend:disabled { opacity: .65; }
+#messageForm button:disabled { opacity: .65; }
 @media (max-width: 52rem) {
   #messageForm { grid-template-columns: minmax(0, 1fr); gap: 14px; }
 }
@@ -330,6 +335,6 @@ nav{grid-template-columns:repeat(5,minmax(0,1fr))}nav button{min-width:0;padding
   #messages { padding-top: 54px; }
   #messages h1 { font-size: 2.5rem; margin-bottom: 12px; }
   #messageForm { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  #messageForm select, #messageSend { min-height: 1.65em; }
+  #messageForm select, #messageForm button { min-height: 1.65em; }
 }
 @media(max-width:540px){nav button[data-pane]{font-size:clamp(9px,2.4vw,13px);padding-inline:1px}}

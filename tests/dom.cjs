@@ -447,12 +447,24 @@ test('host Floor tap and Message send publish the selected secondary table to th
   assert.equal(table.disabled,true);
   server.value=JSON.stringify(['aj','A.J.']);server.onchange();
   assert.deepEqual([...table.options].slice(1).map(o=>o.textContent),['B2','B3']);
-  table.value=JSON.stringify([id,'B3']);table.onchange();d.getElementById('messageSend').click();
-  await waitFor(()=>entry().calls?.B3===NOW,'manual message');
+  const actions=[...d.querySelectorAll('#messageForm button')];
+  assert.deepEqual(actions.map(b=>b.textContent),['New Table','Need Help']);
+  assert(actions.every(b=>b.disabled));
+  table.value=JSON.stringify([id,'B3']);table.onchange();
+  for(const button of actions){
+   button.click();
+   const message=()=>p.shared.data.app.live.serverMessages?.['B3_'+button.value];
+   await waitFor(()=>message()?.at===NOW&&!button.disabled,'typed '+button.value+' message');
+   assert.deepEqual(message(),{table:'B3',server:'A.J.',partyId:id,kind:button.value,at:NOW});
+  }
   assert.match(d.getElementById('messageStatus').textContent,/A\.J\. · B3/);
   const app=p.w.FZHostApp;
   await assert.rejects(app.send('SERVER_CALL',{partyId:id,table:'B3',rowId:'bar',server:'Sarah Kibler'}));
+  await assert.rejects(app.send('SERVER_CALL',{partyId:id,table:'B3',rowId:'aj',server:'A.J.',messageKind:'unknown'}));
+  await app.send('SERVER_CALL',{partyId:id,table:'B3',rowId:'aj',server:'A.J.'});
+  assert.equal(entry().calls.B3,NOW);
   await app.send('STATUS',{table:'B2',status:'ready',partyId:id});
   assert.equal(entry(),undefined);
+  assert.deepEqual(Object.keys(p.shared.data.app.live.serverMessages||{}),[]);
  }finally{p.dom.window.close();}
 });

@@ -126,16 +126,17 @@ function refreshMessageForm(){
  choices.sort((a,b)=>a[1].localeCompare(b[1],undefined,{numeric:true}));
  setChoices(tables,choices,row&&!choices.length?'No seated tables':'Choose table');
  tables.disabled=!choices.length;
- $('messageSend').disabled=!tables.value||!connection?.connected||connection.busy;
+ for(const button of $('messageForm').querySelectorAll('button'))button.disabled=!tables.value||!connection?.connected||connection.busy;
 }
 async function sendServerMessage(event){
  event.preventDefault();
- if(!$('roleGate').hidden||!$('messageTable').value||!$('messageServer').value||$('messageSend').disabled)return;
+ const button=event.submitter;
+ if(!button||button.disabled||!['new','help'].includes(button.value)||!$('roleGate').hidden||!$('messageTable').value||!$('messageServer').value)return;
  const [partyId,table]=JSON.parse($('messageTable').value),[rowId,server]=JSON.parse($('messageServer').value);
- $('messageSend').disabled=true;
+ for(const action of $('messageForm').querySelectorAll('button'))action.disabled=true;
  try{
-  const result=await send('SERVER_CALL',{table,partyId,rowId,server},{keepDialog:true,quiet:true});
-  if(result)$('messageStatus').textContent='Sent to the server screen · '+server+' · '+table;
+  const result=await send('SERVER_CALL',{table,partyId,rowId,server,messageKind:button.value},{keepDialog:true,quiet:true});
+  if(result)$('messageStatus').textContent=button.textContent+' sent · '+server+' · '+table;
  }catch(error){$('messageStatus').textContent=error.message;}
  finally{refreshMessageForm();}
 }

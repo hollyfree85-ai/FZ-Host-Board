@@ -201,14 +201,28 @@ function syncServerScreen(s,cmd){
   if(old?.server===server){
    if(old.focus && tables.includes(old.focus.table))entry.focus=old.focus;
    for(const [table,at] of Object.entries(old.calls||{})){
-    if(tables.includes(table) && cmd.at-at<120000)(entry.calls||={})[table]=at;
+    if(tables.includes(table) && cmd.at-at<180000)(entry.calls||={})[table]=at;
    }
   }
   if(cmd.partyId===p.id){
    if(cmd.type==='SCREEN_FOCUS' && (!entry.focus||cmd.at>=entry.focus.at))entry.focus={table:cmd.table,at:cmd.at};
-   if(cmd.type==='SERVER_CALL')(entry.calls||={})[cmd.table]=Math.max(cmd.at,entry.calls?.[cmd.table]||0);
+   if(cmd.type==='SERVER_CALL'&&!cmd.messageKind)(entry.calls||={})[cmd.table]=Math.max(cmd.at,entry.calls?.[cmd.table]||0);
   }
   parties[p.id]=entry;
+ }
+ // Older tablets rebuild serverScreen on every board action. Keep typed messages
+ // alongside it so those tablets can continue to work during an update.
+ if(cmd.type==='SERVER_CALL' && cmd.messageKind){
+  const messages=s.serverMessages||={};
+  const {table,server,partyId,messageKind:kind,at}=cmd;
+  const key=table+'_'+kind;
+  if(messages[key]?.partyId!==partyId || messages[key].at<=at){
+   messages[key]={kind,table,server,partyId,at};
+  }
+ }
+ for(const [key,msg] of Object.entries(s.serverMessages||{})){
+  const entry=parties[msg.partyId];
+  if(cmd.at-msg.at>=180000 || entry?.server!==msg.server || !entry?.tables.includes(msg.table))delete s.serverMessages[key];
  }
  s.serverScreen={day:s.day,parties};
 }
@@ -226,6 +240,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  case 'SCREEN_INIT':break;
  case 'SCREEN_FOCUS':
  case 'SERVER_CALL':{
+  if(cmd.type==='SERVER_CALL' && cmd.messageKind!=null && !['new','help'].includes(cmd.messageKind))fail('Choose New Table or Need Help.');
   const p=active(s,cmd);
   if(!cmd.partyId||p.shift!==sh||p.rowId!==cmd.rowId||rowOf(s,p.shift,p.rowId).server!==cmd.server)fail('The table or server changed. Select them again.','CONFLICT');
   break;
