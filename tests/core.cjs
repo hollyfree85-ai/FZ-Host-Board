@@ -71,3 +71,15 @@ test('recommendation acceptance rejects stale revisions and formation edits, whi
 test('the same reservation cannot create a second seated party even on different tables',()=>{
  let s=setup();s=C.reduce(s,cmd('SEAT',{table:'B2',secondary:[],people:3,rowId:'aj',reservationId:'res_test'}),config);assert.throws(()=>C.reduce(s,cmd('SEAT',{table:'B3',secondary:[],people:3,rowId:'aj',reservationId:'res_test'}),config),/already seated/);
 });
+
+test('an ordinary skip on an old added section still counts beyond its starting position',()=>{
+ const row={id:'late',section:'6',arrivalOffset:13,entries:[{id:'skip',kind:'manual'}]};
+ assert.equal(C.rotationTurns(row),14);
+ const state=setup();
+ state.shifts.PM.rows.push(row);
+ const normalized=C.normalize(state,config);
+ const joined=normalized.shifts.PM.rows.at(-1);
+ assert.equal(C.startingTurns(joined),13);
+ assert.equal(C.rotationTurns(joined),14);
+ assert.deepEqual(C.normalize(normalized,config),normalized);
+});

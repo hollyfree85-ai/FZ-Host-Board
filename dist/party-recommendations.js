@@ -77,7 +77,8 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
   const uniqueSections=[...new Set(sections)],crossSection=uniqueSections.length>1||uniqueRows.length>1;
   if(crossSection){if(!canCrossSections(people))continue;result.crossSectionCount++;if(!allowCrossSection)continue;}
   const row=uniqueRows[0],load=loads.get(row.id),returnTurn=deferred.get(row.id),max=Math.min(option.max,C.partyLimit(board,config,ids,row));if(people>max)continue;
-  result.candidates.push({tables:[...ids],booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',min:Math.min(option.min,max),max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns:C.slots(row),rotationTurns:C.rotationTurns(row),rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),returnPriority:!!returnTurn?.eligible,returnAt:returnTurn?.at||0,returnReason:returnTurn?.reason||'',...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
+  const turns=C.rotationTurns(row);
+  result.candidates.push({tables:[...ids],booth:ids.length===1&&booths.includes(ids[0]),seatingType:ids.length>1?'COMBINED TABLES':booths.includes(ids[0])?'BOOTH':/^bar\s*\d+$/i.test(ids[0])?'BAR STOOL':'TABLE',min:Math.min(option.min,max),max,section:uniqueSections.join(' / '),crossSection,rowId:row.id,server:row.server,beeper:row.beeper||'—',turns,rotationTurns:turns,rotation:rotationIndex.get(row.id)+1,area:areaRank(ids),returnPriority:!!returnTurn?.eligible,returnAt:returnTurn?.at||0,returnReason:returnTurn?.reason||'',...load,afterGuests:load.activeGuests+people,servers:uniqueRows.map(r=>({name:r.server,section:r.section,beeper:r.beeper||'—',...loads.get(r.id)}))});
   }
  }
  // 1–4 guests follow the exact Board queue. Parties of 5+ keep the nearest
@@ -104,7 +105,8 @@ function search(args){
   const auto=shift==='PM'&&row.barAuto!==false&&String(row.section).toUpperCase().includes('BAR')&&C.list(row.entries).filter(e=>e.kind==='party').length%2===1?1:0,turn=C.deferredTurn(state,shift,row,now);
   if(C.slots(row)+Math.ceil(people/4)+auto>60||turn&&!turn.eligible)return [];
   const load=workload(state,shift,row,now);
-  return [{rowId:row.id,server:row.server,beeper:row.beeper||'—',serverSection:row.section,turns:C.slots(row),rotationTurns:C.rotationTurns(row),rotation:i+1,returnPriority:!!turn?.eligible,returnAt:turn?.at||0,...load,afterGuests:load.activeGuests+people}];
+  const turns=C.rotationTurns(row);
+  return [{rowId:row.id,server:row.server,beeper:row.beeper||'—',serverSection:row.section,turns,rotationTurns:turns,rotation:i+1,returnPriority:!!turn?.eligible,returnAt:turn?.at||0,...load,afterGuests:load.activeGuests+people}];
  }).sort((a,b)=>Number(b.returnPriority)-Number(a.returnPriority)||(a.returnPriority&&b.returnPriority?a.returnAt-b.returnAt:0)||a.rotationTurns-b.rotationTurns||(people<5?a.rotation-b.rotation:a.recentGuests-b.recentGuests||a.activeGuests-b.activeGuests||a.rotation-b.rotation));
  const plans=[board.formation,...Object.keys(config.formations).filter(key=>key!==board.formation).sort()],options=C.list(config.tables).flatMap(t=>{const cap=capacityFor(t.id);return cap?[{tables:[t.id],...cap}]:[];}).concat(people<5?[]:groups),candidates=[];
  for(const option of options){

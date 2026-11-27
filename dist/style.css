@@ -114,6 +114,7 @@ html{color-scheme:dark}body,#app,main,.pane,#board,#more{background:#06131d!impo
 .turn.empty{background:#0b2030!important;border-color:#254155!important;box-shadow:none!important}
 .board-row.next .turn.empty{background:#23291f!important;border-color:#484633!important}
 .turn.party,.turn.party.continuation{background:linear-gradient(#d32f37,#a81c27)!important;color:#fff!important;border:1px solid #f1757b!important;font-weight:900!important}
+.turn.before-arrival{background:#233e52;color:#c2d5e1;border-color:#486378}
 .turn.manual,.turn.auto{background:#915c0a!important;color:#fff!important;border:1px solid #e2b65c!important}
 .row-seat,.primary{background:linear-gradient(#21b76f,#128a50)!important;color:#fff!important;border-color:#6ed6a1!important}.row-skip{background:#925c0a!important;color:#fff!important;border-color:#d6a94d!important}.row-floor{background:#205e9e!important;color:#fff!important;border-color:#76b3e9!important}
 nav,footer,.statusbar{background:#071724!important}nav button,button[data-pane]{background:#102d43!important;color:#aac5d9!important;border-color:#305872!important;box-shadow:none!important}

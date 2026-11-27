@@ -11,7 +11,7 @@ function reservationUndoAvailable(r,now){const expiry=reservationUndoExpiry(r);r
 function reservationUndoExpired(r,now){const expiry=reservationUndoExpiry(r);return expiry!==null&&now>=expiry;}
 function emptyShift(){return {formation:'',rows:[],assignments:{}};}
 function initial(config,at=Date.now()){return {schema:1,day:dayAt(at),revision:0,updatedAt:at,shifts:{AM:emptyShift(),PM:emptyShift()},tables:Object.fromEntries(config.tables.map(t=>[t.id,{status:'ready'}])),parties:{},undo:{},receipts:{},tableHistory:{}};}
-function normalize(raw,config){const s=copy(raw||initial(config));s.shifts=s.shifts||{};for(const sh of ['AM','PM']){const b=s.shifts[sh]||(s.shifts[sh]=emptyShift());b.rows=list(b.rows);b.assignments=b.assignments||{};b.rows.forEach(r=>{r.entries=list(r.entries);r.barAuto=r.barAuto!==false;});syncSectionAssignments(b,config);}s.tables=s.tables||{};for(const t of config.tables)s.tables[t.id]=s.tables[t.id]||{status:'ready'};s.parties=s.parties||{};s.undo=s.undo||{};s.receipts=s.receipts||{};return s;}
+function normalize(raw,config){const s=copy(raw||initial(config));s.shifts=s.shifts||{};for(const sh of ['AM','PM']){const b=s.shifts[sh]||(s.shifts[sh]=emptyShift());b.rows=list(b.rows);b.assignments=b.assignments||{};b.rows.forEach(r=>{r.entries=list(r.entries);if(r.arrivalOffset&&!r.arrivalOffsetShown){r.arrivalOffset=startingTurns(r);r.arrivalOffsetShown=true;}r.barAuto=r.barAuto!==false;});syncSectionAssignments(b,config);}s.tables=s.tables||{};for(const t of config.tables)s.tables[t.id]=s.tables[t.id]||{status:'ready'};s.parties=s.parties||{};s.undo=s.undo||{};s.receipts=s.receipts||{};return s;}
 function rowOf(s,shift,id){const row=s.shifts[shift]?.rows.find(r=>r.id===id);if(!row)fail('Server row changed. Choose the server again.');return row;}
 // Added sections are local to one live shift and its selected formation.
 function shiftFormation(board,config,name=board?.formation){
@@ -76,7 +76,18 @@ function checkPartyLimit(board,config,ids,people,row,backupFormation){
 function autoSkip(row,shift){row.entries=list(row.entries).filter(e=>e.kind!=='auto');if(shift!=='PM'||!row.barAuto||!String(row.section).toUpperCase().includes('BAR'))return;let count=0;row.entries=row.entries.flatMap(e=>{if(e.kind!=='party')return[e];count++;return count%2?[e]:[e,{id:'auto_'+e.id,kind:'auto',after:e.id,at:e.at}];});}
 function slots(row){return list(row.entries).reduce((n,e)=>n+(e.kind==='party'?Math.ceil(e.people/4):1),0);}
 function sectionOrder(a,b){const key=r=>String(r.section).split(/\s*\/\s*/).filter(s=>!/^BAR$/i.test(s)).sort((x,y)=>x.localeCompare(y,undefined,{numeric:true}))[0]||'ZZZ';return key(a).localeCompare(key(b),undefined,{numeric:true});}
-function rotationTurns(row){return slots(row)+(row.arrivalOffset||0);}
+function startingTurns(row){
+ const offset=row.arrivalOffset;
+ if(!Number.isSafeInteger(offset)||offset<=0)return 0;
+ // On old boards a host could batch-fill the starting turns before the first seating.
+ // A single ordinary skip still advances the server beyond the automatic starting position.
+ if(!row.arrivalOffsetShown){
+  const [first,second]=list(row.entries);
+  if(first?.kind==='manual'&&second?.kind==='manual'&&second.id===first.id+'_1')return 0;
+ }
+ return offset;
+}
+function rotationTurns(row){return slots(row)+startingTurns(row);}
 function rotationRows(board){return list(board?.rows).filter(r=>!r.cut&&slots(r)<60).sort((a,b)=>rotationTurns(a)-rotationTurns(b)||(a.arrivalOrder||0)-(b.arrivalOrder||0)||sectionOrder(a,b));}
 const recoveryMs=10*60*1000;
 function latestSeating(s,shift,row,at){
@@ -309,7 +320,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
   if(!ids.length||new Set(ids).size!==ids.length||!ids.every(id=>available.tables.includes(id)))fail('Choose available tables. The table assignments may have changed.','CONFLICT');
   const queue=rotationRows(b);
   const row={id:'row_'+cmd.id,server,section:sec,beeper:'',cut:false,barAuto:true,entries:[],
-   arrivalOffset:Math.max(0,...queue.map(rotationTurns)),arrivalOrder:s.revision+1};
+   arrivalOffset:Math.max(0,...queue.map(rotationTurns)),arrivalOffsetShown:true,arrivalOrder:s.revision+1};
   b.rows.push(row);
   (b.addedSections||={})[sec]=ids;
   for(const id of ids)b.assignments[id]=row.id;
@@ -358,7 +369,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  const tableChanges=tableHistoryChanges(tableBefore,s,cmd,tableRestore);if(tableChanges.length)s.tableHistory[cmd.id]={day:s.day,at:cmd.at,sequence:Object.keys(s.tableHistory).length+1,changes:tableChanges};
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];for(const board of Object.values(s.shifts))syncSectionAssignments(board,config);syncServerScreen(s,cmd);return validate(s);
 }
-return {shiftFormation,openSectionOptions,rotationTurns,rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
+return {shiftFormation,openSectionOptions,startingTurns,rotationTurns,rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
 });
 
 

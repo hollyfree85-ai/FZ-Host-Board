@@ -499,7 +499,13 @@ test('Formation & Servers opens Section 6 on a live two-server shift and keeps i
   assert.deepEqual(board.rows.slice(0,2),previous.rows);assert.deepEqual(saved.tables,tables);
   assert.deepEqual(cfg.formations['2 SERVER'],base);assert.deepEqual(saved.shifts.AM,live.shifts.AM);
   assert.equal(C.rotationRows(board).at(-1).id,extra.id);
-  assert.equal(C.slots(extra),0);assert.equal(d.querySelector('select[data-section="6"]').value,'Sara Swift');
+  assert.equal(C.slots(extra),0);
+  const extraCard=[...d.querySelectorAll('.board-row')].find(card=>card.querySelector('.row-meta strong').textContent===extra.server);
+  assert.equal(extraCard.querySelectorAll('.turn.before-arrival').length,1);
+  assert.match(extraCard.querySelector('.row-meta small').textContent,/0 tables · 1 turns?/);
+  const skipped=C.reduce(saved,cmd('SKIP',{rowId:extra.id,count:1}),cfg);
+  assert.equal(C.rotationTurns(skipped.shifts.PM.rows.find(row=>row.id===extra.id)),2);
+  assert.equal(d.querySelector('select[data-section="6"]').value,'Sara Swift');
   for(const t of boxes.map(x=>x.value))assert.equal(board.assignments[t],extra.id);
   const restored=C.normalize(JSON.parse(JSON.stringify(saved)),cfg);
   assert.equal(C.tableRows(restored.shifts.PM,cfg,'C1')[0].id,extra.id);
@@ -513,6 +519,34 @@ test('Formation & Servers opens Section 6 on a live two-server shift and keeps i
   assert.equal(edited.shifts.PM.assignments.C1,extra.id);
   const switched=C.reduce(edited,cmd('FORMATION',{formation:'4 SERVER',servers:{'2':'A.J.','3':'Sarah Kibler'}}),cfg);
   assert.equal(switched.shifts.PM.addedSections,undefined);
+  assert.deepEqual(p.errors,[]);
+ }finally{p.dom.window.close();}
+});
+
+test('Next Server uses the displayed turns when a late arrival already has manual starting skips',async()=>{
+ const shared=fixture(),board=shared.data.app.live.shifts.PM;
+ const skips=(id,count)=>Array.from({length:count},(_,i)=>({id:i?id+'_'+i:id,kind:'manual',at:NOW-600000}));
+ const ukie={id:'ukie',server:'Ukie',section:'6',arrivalOffset:13,arrivalOrder:102,entries:[
+  ...skips('initial',11),...['D1','C1','C4'].map((table,i)=>({id:'party_'+i,kind:'party',primary:table,people:i===2?6:2,at:NOW-120000+i}))
+ ]};
+ board.rows=[{id:'angela',server:'Angela',section:'2-4',entries:skips('angelaSkip',17)},
+  {id:'adrieanna',server:'Adrieanna',section:'3-5',entries:skips('adrieannaSkip',17)},ukie,
+  {id:'caitlin',server:'Caitlin',section:'BAR',entries:skips('caitlinSkip',16)}];
+ assert.equal(C.rotationRows(board)[0].id,'ukie');
+ const p=await page(shared);
+ try{
+  const d=p.w.document,app=p.w.FZHostApp;
+  assert.equal(d.getElementById('nextName').textContent,'Ukie');
+  assert.match(d.querySelector('.board-row.next .row-meta small').textContent,/3 tables · 15 turns/);
+  assert.equal(d.querySelector('.frontier-guide.min').dataset.count,'15');
+  assert.equal(d.querySelector('.board-row.next .before-arrival'),null);
+  await app.send('SKIP',{rowId:'ukie',count:1});
+  assert.equal(d.getElementById('nextName').textContent,'Caitlin');
+  await app.send('SKIP',{rowId:'ukie',entryId:'initial'});
+  assert.equal(d.getElementById('nextName').textContent,'Ukie');
+  const row=shared.data.app.live.shifts.PM.rows.find(r=>r.id==='ukie');
+  assert.equal(row.arrivalOffset,0);
+  assert.deepEqual(row.entries.filter(e=>e.kind==='party'),ukie.entries.filter(e=>e.kind==='party'));
   assert.deepEqual(p.errors,[]);
  }finally{p.dom.window.close();}
 });
