@@ -338,3 +338,8 @@ nav{grid-template-columns:repeat(5,minmax(0,1fr))}nav button{min-width:0;padding
   #messageForm select, #messageForm button { min-height: 1.65em; }
 }
 @media(max-width:540px){nav button[data-pane]{font-size:clamp(9px,2.4vw,13px);padding-inline:1px}}
+
+#openAddSection { font-size: clamp(1.1rem, 2vw, 1.6rem); margin-top: .75rem; }
+#extraTables { min-width: 0; margin: 1rem 0 .5rem; padding: .75rem; border: 1px solid #48657a; }
+#extraTables legend { padding: 0 .35rem; font-weight: 750; }
+#returnToSetup { margin-top: .5rem; }

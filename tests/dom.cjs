@@ -468,3 +468,51 @@ test('host Floor tap and Message send publish the selected secondary table to th
   assert.deepEqual(Object.keys(p.shared.data.app.live.serverMessages||{}),[]);
  }finally{p.dom.window.close();}
 });
+
+test('Formation & Servers opens Section 6 on a live two-server shift and keeps its parties and rotation',async()=>{
+ const shared=fixture(),cfg=shared.data.app.config;
+ cfg.sectionRules=require('../dist/seed-section-rules.json');
+ let live=C.initial(cfg,NOW),seq=0;
+ const cmd=(type,values)=>({id:'extra_fixture_'+ ++seq,at:NOW,day:C.dayAt(NOW),shift:'PM',type,...values});
+ for(const [section,server] of [['2-4','A.J.'],['3-5','Sarah Kibler']]){
+  live=C.reduce(live,cmd('SECTION_SERVER',{formation:'2 SERVER',section,server}),cfg);
+ }
+ const [first,second]=live.shifts.PM.rows;
+ live=C.reduce(live,cmd('SEAT',{rowId:first.id,table:'A1',people:2}),cfg);
+ live=C.reduce(live,cmd('SKIP',{rowId:second.id,count:1}),cfg);
+ const previous=clone(live.shifts.PM),tables=clone(live.tables),base=clone(cfg.formations['2 SERVER']);
+ shared.data.app.live=live;
+ const p=await page(shared);
+ try{
+  const d=p.w.document,app=p.w.FZHostApp;
+  d.querySelector('[data-entry-role="Front Host"]').click();
+  app.operation('setup');d.getElementById('openAddSection').click();
+  assert.equal(d.getElementById('extraSection').value,'6');
+  const boxes=[...d.querySelectorAll('#extraTables input:checked')];
+  assert.deepEqual(boxes.map(x=>x.value).sort(),['C1','C2','C3','C4','D1','D2','D3']);
+  assert(!d.querySelector('#extraTables input[value="A1"]'));
+  const employee=d.getElementById('extraServer');employee.value='Sara Swift';employee.onchange();
+  d.getElementById('saveExtraSection').click();
+  await waitFor(()=>d.getElementById('modalTitle').textContent==='Formation & Servers'&&d.querySelector('[data-save-section="6"]'),'added section returns to formation');
+  const saved=shared.data.app.live,board=saved.shifts.PM,extra=board.rows.find(r=>r.section==='6');
+  assert.equal(extra.server,'Sara Swift');assert.equal(board.formation,'2 SERVER');
+  assert.deepEqual(board.rows.slice(0,2),previous.rows);assert.deepEqual(saved.tables,tables);
+  assert.deepEqual(cfg.formations['2 SERVER'],base);assert.deepEqual(saved.shifts.AM,live.shifts.AM);
+  assert.equal(C.rotationRows(board).at(-1).id,extra.id);
+  assert.equal(C.slots(extra),0);assert.equal(d.querySelector('select[data-section="6"]').value,'Sara Swift');
+  for(const t of boxes.map(x=>x.value))assert.equal(board.assignments[t],extra.id);
+  const restored=C.normalize(JSON.parse(JSON.stringify(saved)),cfg);
+  assert.equal(C.tableRows(restored.shifts.PM,cfg,'C1')[0].id,extra.id);
+  const result=require('../dist/party-recommendations').recommend({state:restored,config:cfg,shift:'PM',people:4,now:NOW});
+  assert(result.candidates.some(c=>c.rowId===extra.id&&c.tables.includes('C1')));
+  assert.throws(()=>C.reduce(saved,cmd('ADD_SECTION',{formation:'2 SERVER',section:'6',server:'Megan Meadows',tables:['C1']}),cfg),/section/i);
+  assert.throws(()=>C.reduce(saved,cmd('ADD_SECTION',{formation:'2 SERVER',section:'7',server:'Megan Meadows',tables:['B1']}),cfg),/tables/i);
+  const remapped=C.reduce(saved,cmd('ASSIGNMENTS',{expectedFormation:'2 SERVER',mapping:previous.assignments}),cfg);
+  assert.equal(remapped.shifts.PM.assignments.C1,extra.id);
+  const edited=C.reduce(saved,cmd('FORMATION',{formation:'2 SERVER',servers:{'2-4':'A.J.','3-5':'Sarah Kibler','6':'Sara Swift'}}),cfg);
+  assert.equal(edited.shifts.PM.assignments.C1,extra.id);
+  const switched=C.reduce(edited,cmd('FORMATION',{formation:'4 SERVER',servers:{'2':'A.J.','3':'Sarah Kibler'}}),cfg);
+  assert.equal(switched.shifts.PM.addedSections,undefined);
+  assert.deepEqual(p.errors,[]);
+ }finally{p.dom.window.close();}
+});
