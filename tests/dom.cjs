@@ -564,3 +564,34 @@ test('AM Board at MIN 19 selects Angela, then Ukie, then Caitlin as their next b
   assert.deepEqual(p.errors,[]);
  }finally{p.dom.window.close();}
 });
+
+test('Floor keeps the Board turn and finds the next server with an available table',async()=>{
+ const shared=fixture(),live=shared.data.app.live,board=live.shifts.PM;
+ const row=(id,name,section)=>({id,server:name,section,cut:false,entries:[]});
+ board.rows=[row('first','Angela','2'),row('second','Megan','3'),row('third','Ukie','6')];
+ board.assignments={A1:'first',A2:'second',A3:'third'};
+ for(const table of Object.values(live.tables))table.status='cleaning';
+ live.tables.A2.status='ready';
+ live.tables.A3.status='ready';
+ const p=await page(shared);
+ try{
+  const d=p.w.document,read=id=>d.getElementById(id).textContent;
+  assert.equal(read('floorNextName'),'Angela');
+  assert.equal(read('floorNextDetail'),'Section 2 · No ready table');
+  assert.equal(read('floorBackupName'),'Megan');
+  assert.equal(read('floorBackupDetail'),'Section 3 · Table A2 · READY');
+  const db=shared.firebase.apps[0].database(),hold=db.ref('app/reservations/future');
+  await hold.set({date:live.day,time:'20:00',status:'Confirmed',table:'A2'});
+  await waitFor(()=>read('floorBackupName')==='Ukie','skip held table');
+  assert.equal(read('floorBackupDetail'),'Section 6 · Table A3 · READY');
+  await p.w.FZHostApp.send('STATUS',{table:'A3',status:'cleaning'});
+  await waitFor(()=>read('floorBackupDetail')==='No other ready table','all tables unavailable');
+  assert.equal(read('floorBackupName'),'—');
+  assert.equal(read('floorNextName'),read('nextName'));
+  await hold.remove();
+  await p.w.FZHostApp.send('STATUS',{table:'A1',status:'ready'});
+  await waitFor(()=>read('floorNextDetail')==='Section 2 · Table A1 · READY','first server available again');
+  assert.equal(read('floorBackupName'),'Megan');
+  assert.deepEqual(p.errors,[]);
+ }finally{p.dom.window.close();}
+});

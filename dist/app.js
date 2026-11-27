@@ -93,10 +93,39 @@ function drawWizard(){const w=wizard;if(!w)return;const titles=['Choose Table','
 
 function sectionOrder(a,b){return C.sectionOrder(a,b);}
 function nextRow(){return C.nextBoardRow(shiftBoard());}
-function renderBoard(){const b=shiftBoard();if(!b)return false;const renderKey=JSON.stringify([selectedShift,b,state.tables,config.sectionRules,Math.floor((connection?.now()||Date.now())/60000)]);if(lastBoardRenderKey===renderKey)return false;lastBoardRenderKey=renderKey;const cutNow=connection.now(),cutPlan=selectedShift==='PM'?C.pmCutPlan(state,cutNow):null;const next=nextRow(),active=b.rows.filter(r=>!r.cut).sort(sectionOrder);const nextName=next?.server||'—';$('nextName').textContent=nextName;
- const floorNextName=$('floorNextName');
- if(floorNextName.textContent!==nextName)floorNextName.textContent=nextName;
- $('nextMeta').textContent=next?'BOX '+(C.rotationTurns(next)+1)+' · SECTION '+next.section+' · '+C.boardTableCount(next)+' TABLES · BEEPER '+(next.beeper||'—'):'Set a formation to begin';const available=next?config.tables.filter(t=>C.tableRows(b,config,t.id).some(r=>r.id===next.id)&&state.tables[t.id].status==='ready'):[];$('nextReady').textContent=next?'READY TABLES · '+available.length+' AVAILABLE · '+(available.map(t=>t.id).join(' · ')||'None'):'';$('seatNext').disabled=!next||!connection?.connected||connection.busy;$('seatNext').onclick=()=>openSeatWizard({rowId:next?.id||''});$('teamCount').textContent=active.length+' active';
+function showFloorServer(nameId,detailId,row,table,empty){
+ const name=row?.server||'—';
+ const detail=row?['Section '+(row.section||'—'),table?'Table '+table.id+' · READY':'No ready table'].join(' · '):empty;
+ if($(nameId).textContent!==name)$(nameId).textContent=name;
+ if($(detailId).textContent!==detail)$(detailId).textContent=detail;
+}
+function renderBoard(){
+ const b=shiftBoard();if(!b)return false;
+ const cutNow=connection.now(),held=PartyRecommendations.heldTables(communications?.reservations,state.day,cutNow);
+ const renderKey=JSON.stringify([selectedShift,b,state.tables,config.sectionRules,config.tables.map(t=>t.id),[...held],Math.floor(cutNow/60000)]);
+ if(lastBoardRenderKey===renderKey)return false;
+ lastBoardRenderKey=renderKey;
+ const cutPlan=selectedShift==='PM'?C.pmCutPlan(state,cutNow):null;
+ const ordered=C.boardRotationRows(b),next=ordered[0],active=b.rows.filter(r=>!r.cut).sort(sectionOrder);
+ const readyByRow=new Map();
+ for(const table of config.tables){
+  const floorTable=state.tables[table.id];
+  if(floorTable?.status!=='ready'||floorTable.partyId||held.has(table.id))continue;
+  for(const owner of C.tableRows(b,config,table.id)){
+   if(!readyByRow.has(owner.id))readyByRow.set(owner.id,[]);
+   readyByRow.get(owner.id).push(table);
+  }
+ }
+ const available=readyByRow.get(next?.id)||[],firstTable=available[0];
+ let backup,backupTable;
+ for(const row of ordered.slice(1)){
+  const table=readyByRow.get(row.id)?.find(t=>t!==firstTable);
+  if(table){backup=row;backupTable=table;break;}
+ }
+ $('nextName').textContent=next?.server||'—';
+ showFloorServer('floorNextName','floorNextDetail',next,firstTable,'No server in rotation');
+ showFloorServer('floorBackupName','floorBackupDetail',backup,backupTable,'No other ready table');
+ $('nextMeta').textContent=next?'BOX '+(C.rotationTurns(next)+1)+' · SECTION '+next.section+' · '+C.boardTableCount(next)+' TABLES · BEEPER '+(next.beeper||'—'):'Set a formation to begin';$('nextReady').textContent=next?'READY TABLES · '+available.length+' AVAILABLE · '+(available.map(t=>t.id).join(' · ')||'None'):'';$('seatNext').disabled=!next||!connection?.connected||connection.busy;$('seatNext').onclick=()=>openSeatWizard({rowId:next?.id||''});$('teamCount').textContent=active.length+' active';
  $('boardRows').innerHTML=active.length?active.map(r=>{const cells=r.entries.flatMap(e=>e.kind==='party'?[`<button class="turn party" data-party-table="${esc(e.primary)}" title="${esc(e.primary)} · ${e.people} guests"><b>${esc(e.primary)}</b><small>${e.people} guests</small></button>`,...Array.from({length:Math.ceil(e.people/4)-1},()=>`<button class="turn party continuation" data-party-table="${esc(e.primary)}" title="${esc(e.primary)} · ${e.people} guests · same party"><b>${esc(e.primary)}</b><small>same party</small></button>`)]:[`<button class="turn ${e.kind}" ${e.kind==='manual'?`data-unskip="${esc(e.id)}" data-row="${esc(r.id)}"`:''} title="${e.kind==='auto'?'BAR AUTO':'MANUAL'} SKIP"><b>SKIP</b></button>`]);const start=C.startingTurns(r);
  if(start)cells.unshift(...Array.from({length:start},()=>'<div class="turn before-arrival" title="Turn before this server joined">JOIN</div>'));
  const used=cells.length,shown=Math.max(45,Math.ceil(used/15)*15);while(cells.length<shown)cells.push(`<div class="turn empty ${cells.length===used?'current':''}" aria-label="Empty turn ${cells.length+1}"></div>`);return `<article class="board-row ${r.cut?'cut':''} ${r===next?'next':''}"><div class="row-meta"><span class="section-bubble">${esc(r.section==='BAR'?'BAR':'S'+r.section)}</span><div><strong>${esc(r.server)}</strong><small>${C.boardTableCount(r)} tables · ${used} turns${r.cut?' · CUT':''}</small><span class="beeper-chip">BEEPER ${esc(r.beeper||'—')}</span><span class="work-shift-chip">${esc(r.workShift||selectedShift)}${r.workShift==='Long Shift'?' · '+esc(r.longStart||'14:00'):''}${selectedShift==='PM'&&r.closer?' · CLOSER':''}${selectedShift==='PM'&&r.workTomorrowAM?' · TOMORROW AM':''}</span><small class="cut-advice">${esc(C.cutAdvice(state,selectedShift,r,cutNow,cutPlan).label)}</small></div></div><div class="turns">${cells.join('')}</div><div class="row-actions"><button class="row-seat" data-row-seat="${esc(r.id)}" ${r.cut?'disabled':''}>SEAT</button><button class="row-skip" data-skip="${esc(r.id)}">SKIP</button><button class="row-floor" data-row-floor="${esc(r.id)}">FLOOR</button><button class="row-clear danger" data-row-clear="${esc(r.id)}">CLEAR</button>${selectedShift==='PM'&&String(r.section).toUpperCase().includes('BAR')?`<button class="bar-toggle ${r.barAuto!==false?'on':'off'}" data-bar-toggle="${esc(r.id)}" data-bar-next="${r.barAuto===false}" aria-pressed="${r.barAuto!==false}">AUTO SKIP ${r.barAuto!==false?'ON':'OFF'}</button>`:''}</div></article>`;}).join(''):'<div class="empty-state"><h3>No active servers.</h3><p>Use Cut / Uncut Employee to restore a server, or set Formation &amp; Servers for a new shift.</p><button class="primary" data-op="setup">FORMATION &amp; SERVERS</button></div>';
@@ -259,7 +288,7 @@ async function boot(){initClassic();
  const cmd=connection.command('SCREEN_INIT');
  void connection.liveRef.transaction(raw=>raw&&!raw.serverScreen?C.reduce(raw,cmd,config,connection.now()):undefined,undefined,false).catch(()=>{initializedScreen=false;});};
  const screenInitTimer=setInterval(()=>{if(state?.serverScreen){clearInterval(screenInitTimer);return;}firstScreen();},5000);
- communications=new HostCommunications({connection,getRole:()=>role,getShift:()=>selectedShift,isEntered:()=>$('roleGate').hidden,reservationSound:()=>floorAlerts.sound(),isManager:manager,openDialog,closeDialog,toast,escape:esc,acceptRecommendation,onReservationsChange:()=>{renderMap();partyDialog?.refresh();}});communications.start();partyDialog=new PartyDialog({openDialog,escape:esc,accept:acceptRecommendation,context:()=>({state,config,shift:selectedShift,records:communications?.reservations||{},now:connection.now(),live:connection.connected&&!connection.busy&&!!connection.state&&!!connection.config,formationLabel:formationLabel(shiftBoard()?.formation)})});setInterval(()=>{checkDay();partyDialog?.refresh();cutAlerts?.check();if(state&&renderBoard()!==false)renderFrontiers();},15000);window.addEventListener('online',checkDay);setTimeout(checkDay,2000);appUpdates=new AppUpdates({version:document.querySelector('meta[name=app-version]').content,isSafe:()=>!!state&&!connection.busy&&!connection.readPending()&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,select,textarea')&&!$('waitingName').value.trim()&&!$('waitingPhone').value.trim()&&$('waitingGuests').value==='2',beforeReload:()=>{try{sessionStorage.setItem('fz_update_pane',document.querySelector('.pane.active')?.id||'board');}catch(_){}},onAvailable:version=>{$('appUpdateStatus').textContent='Version '+version+' available · applying when idle';}});void appUpdates.start();}
+ communications=new HostCommunications({connection,getRole:()=>role,getShift:()=>selectedShift,isEntered:()=>$('roleGate').hidden,reservationSound:()=>floorAlerts.sound(),isManager:manager,openDialog,closeDialog,toast,escape:esc,acceptRecommendation,onReservationsChange:()=>{renderMap();if(state&&config&&renderBoard()!==false)renderFrontiers();partyDialog?.refresh();}});communications.start();partyDialog=new PartyDialog({openDialog,escape:esc,accept:acceptRecommendation,context:()=>({state,config,shift:selectedShift,records:communications?.reservations||{},now:connection.now(),live:connection.connected&&!connection.busy&&!!connection.state&&!!connection.config,formationLabel:formationLabel(shiftBoard()?.formation)})});setInterval(()=>{checkDay();partyDialog?.refresh();cutAlerts?.check();if(state&&renderBoard()!==false)renderFrontiers();},15000);window.addEventListener('online',checkDay);setTimeout(checkDay,2000);appUpdates=new AppUpdates({version:document.querySelector('meta[name=app-version]').content,isSafe:()=>!!state&&!connection.busy&&!connection.readPending()&&!document.querySelector('dialog[open]')&&!document.activeElement?.matches('input,select,textarea')&&!$('waitingName').value.trim()&&!$('waitingPhone').value.trim()&&$('waitingGuests').value==='2',beforeReload:()=>{try{sessionStorage.setItem('fz_update_pane',document.querySelector('.pane.active')?.id||'board');}catch(_){}},onAvailable:version=>{$('appUpdateStatus').textContent='Version '+version+' available · applying when idle';}});void appUpdates.start();}
 window.FZHostApp={get state(){return state;},get config(){return config;},get connection(){return connection;},get cutAlerts(){return cutAlerts;},get updates(){return appUpdates;},send,operation,pane,handleVoiceCommand};
 boot().catch(e=>{notice(e.message,'error');toast(e.message);});
 

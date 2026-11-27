@@ -48,6 +48,9 @@ function areaRank(tables){
  if(tables.some(id=>/^[HM]/.test(id)))return 4;
  return 5;
 }
+function heldTables(records,day,now){
+ return new Set(Object.values(records||{}).filter(r=>r&&r.table&&r.date===day&&!/cancel|complete|seated|no.?show|deleted/i.test(r.status||'')&&C.reservationTime(r.date,r.time)+3600000>now).flatMap(r=>[r.table,...C.list(r.secondary)]));
+}
 function recommend({state,config,shift='PM',people,records={},now=Date.now(),allowCrossSection=canCrossSections(people)}){
  const result={candidates:[],crossSectionCount:0,recovering:[],reason:''};
  if(!Number.isInteger(people)||people<1||people>120)return {...result,reason:'Enter a whole number from 1 to 120 guests.'};
@@ -59,7 +62,7 @@ function recommend({state,config,shift='PM',people,records={},now=Date.now(),all
  const deferred=new Map(allRows.map(r=>[r.id,C.deferredTurn(state,shift,r,now)]));
  const rows=allRows.filter(r=>{if(!String(r.server||'').trim())return false;const nextAutoSkip=shift==='PM'&&r.barAuto!==false&&String(r.section).toUpperCase().includes('BAR')&&C.list(r.entries).filter(e=>e.kind==='party').length%2===1?1:0;if(C.slots(r)+Math.ceil(people/4)+nextAutoSkip>60)return false;const turn=deferred.get(r.id);if(turn&&!turn.eligible){result.recovering.push({rowId:r.id,server:r.server,until:turn.until,minutes:Math.ceil((turn.until-now)/60000)});return false;}return true;}),rowMap=new Map(rows.map(r=>[r.id,r]));
  const knownTables=new Set(C.list(config.tables).map(t=>t.id));
- const held=new Set(Object.values(records||{}).filter(r=>r&&r.table&&r.date===state.day&&!/cancel|complete|seated|no.?show|deleted/i.test(r.status||'')&&C.reservationTime(r.date,r.time)+3600000>now).flatMap(r=>[r.table,...C.list(r.secondary)]));
+ const held=heldTables(records,state.day,now);
  const formedTables=new Set(Object.values(C.shiftFormation(board,config)).flatMap(C.list));
  const available=id=>knownTables.has(id)&&formedTables.has(id)&&state.tables?.[id]?.status==='ready'&&!state.tables[id].partyId&&!held.has(id);
  const joined=prefix=>Object.values(state.parties||{}).some(p=>C.members(p).filter(id=>id.startsWith(prefix)).length>1);
@@ -96,7 +99,7 @@ function search(args){
  if(!Number.isInteger(people)||people<1||people>120||state?.day!==C.dayAt(now)||!config?.formations?.[board?.formation])return report;
  const current=C.shiftFormation(board,config),known=new Set(C.list(config.tables).map(t=>t.id)),activeRows=C.rotationRows(board).filter(r=>String(r.server||'').trim()),activeMap=new Map(activeRows.map(r=>[r.id,r]));
  const currentTables=new Set(Object.values(current).flatMap(C.list));
- const held=new Set(Object.values(records||{}).filter(r=>r&&r.table&&r.date===state.day&&!/cancel|complete|seated|no.?show|deleted/i.test(r.status||'')&&C.reservationTime(r.date,r.time)+3600000>now).flatMap(r=>[r.table,...C.list(r.secondary)]));
+ const held=heldTables(records,state.day,now);
  const available=id=>known.has(id)&&state.tables?.[id]?.status==='ready'&&!state.tables[id].partyId&&!held.has(id);
  const inactive=id=>!currentTables.has(id)||!C.tableRows(board,config,id).some(r=>activeMap.has(r.id));
  const joined=prefix=>Object.values(state.parties||{}).some(p=>C.members(p).filter(id=>id.startsWith(prefix)).length>1);
@@ -133,5 +136,5 @@ function search(args){
  candidates.sort((a,b)=>Number(a.planFormation!==board.formation)-Number(b.planFormation!==board.formation)||Number(a.crossSection)-Number(b.crossSection)||(people<5?Number(b.booth)-Number(a.booth):a.area-b.area)||(a.max-people)-(b.max-people)||a.tables.length-b.tables.length||a.tables.join().localeCompare(b.tables.join(),undefined,{numeric:true}));
  return {...report,candidates:[...report.candidates,...candidates],activeCount:report.candidates.length,backupCount:candidates.length,inactive:!report.candidates.length&&candidates.length>0,reason:candidates.length?'Review these additional READY tables outside the active sections.':report.reason};
 }
-return {capacities,capacityFor,booths,groups,canCrossSections,totalCapacity,recommend,search,sectionFor};
+return {capacities,capacityFor,booths,groups,canCrossSections,totalCapacity,heldTables,recommend,search,sectionFor};
 });
