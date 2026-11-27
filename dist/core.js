@@ -91,7 +91,7 @@ function rotationTurns(row){return slots(row)+startingTurns(row);}
 function eligibleRotationRows(board){return list(board?.rows).filter(r=>!r.cut&&slots(r)<60);}
 function boardTableCount(row){return list(row.entries).filter(entry=>entry.kind==='party').length;}
 function nextBoardRow(board){
- return eligibleRotationRows(board).sort((a,b)=>boardTableCount(a)-boardTableCount(b)||sectionOrder(a,b))[0]||null;
+ return eligibleRotationRows(board).sort((a,b)=>rotationTurns(a)-rotationTurns(b)||sectionOrder(a,b))[0]||null;
 }
 function rotationRows(board){return eligibleRotationRows(board).sort((a,b)=>rotationTurns(a)-rotationTurns(b)||(a.arrivalOrder||0)-(b.arrivalOrder||0)||sectionOrder(a,b));}
 const recoveryMs=10*60*1000;
