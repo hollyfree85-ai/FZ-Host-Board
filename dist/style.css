@@ -279,8 +279,57 @@ nav{grid-template-columns:repeat(5,minmax(0,1fr))}nav button{min-width:0;padding
 .cut-review-actions{display:flex;gap:12px}.cut-review-actions button{flex:1;min-height:54px;font-size:20px;font-weight:850}
 #pmCutAlert>button{margin-top:14px;min-height:48px;font-size:17px}#pmCutAlert::backdrop{background:#0009}
 
-#messages{padding:68px clamp(16px,4vw,64px) 24px;overflow:auto}
-#messageForm{max-width:640px;display:grid;gap:18px}
-#messageForm label{display:grid;gap:6px;font-weight:700}#messageForm select,#messageSend{min-height:48px}
-#messageStatus{min-height:1.5em}#messageSend:disabled{opacity:.55}
+/* Large, touch-friendly messaging controls for the host stand. */
+#messages {
+  padding: max(70px, 8vh) clamp(16px, 4vw, 80px) 26px;
+  overflow: auto;
+}
+#messages h1 {
+  font-size: clamp(2.6rem, 5.6vw, 6.5rem);
+  line-height: 1.02;
+  letter-spacing: -.045em;
+  margin: 0 0 clamp(18px, 3vh, 40px);
+}
+#messageForm {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: clamp(18px, 2.5vw, 48px);
+}
+#messageForm label {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .22em;
+  margin: 0;
+  font-size: clamp(1.6rem, 2.7vw, 3.4rem);
+  font-weight: 750;
+}
+#messageForm select, #messageSend {
+  width: 100%;
+  min-height: 1.95em;
+  height: auto;
+  padding: .23em .4em;
+  font-size: clamp(2rem, 3.55vw, 4.5rem);
+  font-weight: 800;
+}
+#messageForm option { font-size: clamp(1.2rem, 2.25vw, 2.7rem); }
+#messageSend {
+  grid-column: 1 / -1;
+  font-size: clamp(2.2rem, 4.2vw, 5.2rem);
+}
+#messageStatus {
+  margin: .5em 0 0;
+  font-size: clamp(1.35rem, 2.3vw, 3rem);
+  font-weight: 700;
+}
+#messageSend:disabled { opacity: .65; }
+@media (max-width: 52rem) {
+  #messageForm { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+}
+@media (max-height: 34rem) and (min-width: 36rem) {
+  #messages { padding-top: 54px; }
+  #messages h1 { font-size: 2.5rem; margin-bottom: 12px; }
+  #messageForm { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  #messageForm select, #messageSend { min-height: 1.65em; }
+}
 @media(max-width:540px){nav button[data-pane]{font-size:clamp(9px,2.4vw,13px);padding-inline:1px}}
