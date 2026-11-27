@@ -539,9 +539,13 @@ test('AM Board at MIN 19 selects Angela, then Ukie, then Caitlin as their next b
  const p=await page(shared);
  try{
   const d=p.w.document,app=p.w.FZHostApp;
+  app.pane('floor');
+  const floorNext=d.querySelector('#floor.active .floor-controls #floorNextName');
+  assert.equal(floorNext.textContent,d.getElementById('nextName').textContent);
   d.getElementById('shiftBadge').click();
   const assertNext=(name,box)=>{
    assert.equal(d.getElementById('nextName').textContent,name);
+   assert.equal(floorNext.textContent,name);
    assert.equal(d.querySelector('.board-row.next .row-meta strong').textContent,name);
    assert.equal(d.querySelector('.frontier-guide.min').dataset.turn,String(box));
    assert.match(d.getElementById('nextMeta').textContent,new RegExp('^BOX '+box+' ·'));
