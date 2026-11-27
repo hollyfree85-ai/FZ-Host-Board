@@ -52,7 +52,7 @@ test('Angela A4 to A3 move releases A4 and keeps one party and the same rotation
 
 test('Host CLEAR on a server row removes the selected wrong party and keeps Undo available',async()=>{const p=await page();try{await seatUI(p);const d=p.w.document;p.w.FZHostApp.pane('board');d.querySelector('[data-row-clear="aj"]').click();assert.equal(d.getElementById('modalTitle').textContent,'Clear Wrong Table');d.querySelector('[data-clear-entry]').click();await waitFor(()=>p.w.FZHostApp.state.tables.B2.status==='ready'&&!p.w.FZHostApp.connection.busy,'clear wrong table');assert.equal(p.w.FZHostApp.state.tables.B3.status,'ready');assert.equal(p.w.FZHostApp.state.shifts.PM.rows[0].entries.length,0);assert.equal(Object.keys(p.w.FZHostApp.state.undo).length,1);assert.deepEqual(p.errors,[]);}finally{await pause(30);p.dom.window.close();}});
 
-test('Equal turns choose Alaina S2 before Ashley S5 regardless of saved row order',async()=>{const shared=fixture(),rows=[['ashley','Ashley Garcia','5',3],['bar','Sarah Kibler','BAR',3],['alaina','Alaina Montalvo','2',4],['angela','Angela Grizzad','3',4],['hannah','Hannah Dempsey','4',4]];shared.data.app.live.shifts.PM.rows=rows.map(([id,server,section,count])=>({id,server,section,cut:false,entries:Array.from({length:count},(_,i)=>({id:id+i,kind:'party',primary:'A1',secondary:[],people:id==='ashley'&&i===2?6:2,at:NOW})).concat(id==='bar'?[{id:'auto_bar',kind:'auto',at:NOW}]:[])}));const p=await page(shared);try{const d=p.w.document;assert.equal(d.getElementById('nextName').textContent,'Alaina Montalvo');assert.equal(d.querySelector('.board-row.next .row-meta strong').textContent,'Alaina Montalvo');d.getElementById('seatNext').click();d.querySelector('[data-pick-table="B2"]').click();d.getElementById('wizardNext').click();d.getElementById('wizardNext').click();assert.equal(d.querySelector('.server-pick.selected').dataset.server,'alaina');assert.deepEqual(p.errors,[]);}finally{await pause(30);p.dom.window.close();}});
+test('Board chooses the fewest tables, breaks ties by section and preselects that server for SEAT',async()=>{const shared=fixture(),rows=[['ashley','Ashley Garcia','5',3],['bar','Sarah Kibler','BAR',3],['alaina','Alaina Montalvo','2',4],['angela','Angela Grizzad','3',4],['hannah','Hannah Dempsey','4',4]];shared.data.app.live.shifts.PM.rows=rows.map(([id,server,section,count])=>({id,server,section,cut:false,entries:Array.from({length:count},(_,i)=>({id:id+i,kind:'party',primary:'A1',secondary:[],people:id==='ashley'&&i===2?6:2,at:NOW})).concat(id==='bar'?[{id:'auto_bar',kind:'auto',at:NOW}]:[])}));const p=await page(shared);try{const d=p.w.document;assert.equal(d.getElementById('nextName').textContent,'Ashley Garcia');assert.equal(d.querySelector('.board-row.next .row-meta strong').textContent,'Ashley Garcia');d.getElementById('seatNext').click();d.querySelector('[data-pick-table="B2"]').click();d.getElementById('wizardNext').click();d.getElementById('wizardNext').click();assert.equal(d.querySelector('.server-pick.selected').dataset.server,'ashley');assert.deepEqual(p.errors,[]);}finally{await pause(30);p.dom.window.close();}});
 
 test('READY closes all dialogs after saving and retains rotation entries',async()=>{const p=await page();try{await seatUI(p);const d=p.w.document;d.querySelector('[data-table="B2"]').click();assert(d.getElementById('tableDialog').open);d.getElementById('readyAction').click();await waitFor(()=>p.w.FZHostApp.state.tables.B2.status==='ready'&&!p.w.FZHostApp.connection.busy&&!d.getElementById('tableDialog').open,'ready closes panel');assert.equal(d.querySelectorAll('dialog[open]').length,0);assert.equal(p.w.FZHostApp.state.tables.B3.status,'ready');assert.equal(p.w.FZHostApp.state.shifts.PM.rows[0].entries.length,1);assert.deepEqual(p.errors,[]);}finally{await pause(30);p.dom.window.close();}});
 test('Alaina remains next when another server is seated out of turn',async()=>{const shared=fixture();shared.data.app.live.shifts.PM.rows=[{id:'ashley',server:'Ashley',section:'5',cut:false,entries:[]},{id:'alaina',server:'Alaina',section:'2',cut:false,entries:[]}];const p=await page(shared);try{const d=p.w.document;assert.equal(d.getElementById('nextName').textContent,'Alaina');await p.w.FZHostApp.send('SEAT',{rowId:'ashley',table:'A4',people:2,secondary:[]});assert.equal(d.getElementById('nextName').textContent,'Alaina');assert.equal(d.querySelector('.board-row.next .row-meta strong').textContent,'Alaina');assert.deepEqual(p.errors,[]);}finally{await pause(30);p.dom.window.close();}});
@@ -523,16 +523,17 @@ test('Formation & Servers opens Section 6 on a live two-server shift and keeps i
  }finally{p.dom.window.close();}
 });
 
-test('Next Server uses the displayed turns when a late arrival already has manual starting skips',async()=>{
+test('Next Server uses seated table count for a late arrival regardless of manual skips or party size',async()=>{
  const shared=fixture(),board=shared.data.app.live.shifts.PM;
  const skips=(id,count)=>Array.from({length:count},(_,i)=>({id:i?id+'_'+i:id,kind:'manual',at:NOW-600000}));
  const ukie={id:'ukie',server:'Ukie',section:'6',arrivalOffset:13,arrivalOrder:102,entries:[
   ...skips('initial',11),...['D1','C1','C4'].map((table,i)=>({id:'party_'+i,kind:'party',primary:table,people:i===2?6:2,at:NOW-120000+i}))
  ]};
- board.rows=[{id:'angela',server:'Angela',section:'2-4',entries:skips('angelaSkip',17)},
-  {id:'adrieanna',server:'Adrieanna',section:'3-5',entries:skips('adrieannaSkip',17)},ukie,
-  {id:'caitlin',server:'Caitlin',section:'BAR',entries:skips('caitlinSkip',16)}];
- assert.equal(C.rotationRows(board)[0].id,'ukie');
+ const parties=id=>Array.from({length:15},(_,i)=>({id:id+i,kind:'party',primary:'A1',people:i===0?5:2,at:NOW-600000+i}));
+ board.rows=[{id:'angela',server:'Angela',section:'2-4',entries:parties('angela')},
+  {id:'adrieanna',server:'Adrieanna',section:'3-5',entries:parties('adrieanna')},ukie,
+  {id:'caitlin',server:'Caitlin',section:'BAR',entries:parties('caitlin')}];
+ assert.equal(C.nextBoardRow(board).id,'ukie');
  const p=await page(shared);
  try{
   const d=p.w.document,app=p.w.FZHostApp;
@@ -540,8 +541,9 @@ test('Next Server uses the displayed turns when a late arrival already has manua
   assert.match(d.querySelector('.board-row.next .row-meta small').textContent,/3 tables · 15 turns/);
   assert.equal(d.querySelector('.frontier-guide.min').dataset.count,'15');
   assert.equal(d.querySelector('.board-row.next .before-arrival'),null);
-  await app.send('SKIP',{rowId:'ukie',count:1});
-  assert.equal(d.getElementById('nextName').textContent,'Caitlin');
+  await app.send('SKIP',{rowId:'ukie',count:5});
+  assert.equal(d.getElementById('nextName').textContent,'Ukie');
+  assert.match(d.getElementById('nextMeta').textContent,/3 TABLES/);
   await app.send('SKIP',{rowId:'ukie',entryId:'initial'});
   assert.equal(d.getElementById('nextName').textContent,'Ukie');
   const row=shared.data.app.live.shifts.PM.rows.find(r=>r.id==='ukie');

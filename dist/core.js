@@ -88,7 +88,12 @@ function startingTurns(row){
  return offset;
 }
 function rotationTurns(row){return slots(row)+startingTurns(row);}
-function rotationRows(board){return list(board?.rows).filter(r=>!r.cut&&slots(r)<60).sort((a,b)=>rotationTurns(a)-rotationTurns(b)||(a.arrivalOrder||0)-(b.arrivalOrder||0)||sectionOrder(a,b));}
+function eligibleRotationRows(board){return list(board?.rows).filter(r=>!r.cut&&slots(r)<60);}
+function boardTableCount(row){return list(row.entries).filter(entry=>entry.kind==='party').length;}
+function nextBoardRow(board){
+ return eligibleRotationRows(board).sort((a,b)=>boardTableCount(a)-boardTableCount(b)||sectionOrder(a,b))[0]||null;
+}
+function rotationRows(board){return eligibleRotationRows(board).sort((a,b)=>rotationTurns(a)-rotationTurns(b)||(a.arrivalOrder||0)-(b.arrivalOrder||0)||sectionOrder(a,b));}
 const recoveryMs=10*60*1000;
 function latestSeating(s,shift,row,at){
  const key=canonical(row.server).toLowerCase();let latest=null;
@@ -369,7 +374,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  const tableChanges=tableHistoryChanges(tableBefore,s,cmd,tableRestore);if(tableChanges.length)s.tableHistory[cmd.id]={day:s.day,at:cmd.at,sequence:Object.keys(s.tableHistory).length+1,changes:tableChanges};
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];for(const board of Object.values(s.shifts))syncSectionAssignments(board,config);syncServerScreen(s,cmd);return validate(s);
 }
-return {shiftFormation,openSectionOptions,startingTurns,rotationTurns,rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
+return {shiftFormation,openSectionOptions,startingTurns,rotationTurns,rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,boardTableCount,nextBoardRow,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
 });
 
 
