@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="referrer" content="no-referrer">
+  <title>Server board · The Juicy Seafood Huntsville</title>
+  <link rel="icon" href="../booking/juicy-logo.png">
+  <link rel="stylesheet" href="https://juicy-huntsville-reservations.hollyfree85.chatgpt.site/server-screen.css?v=5">
+  <script defer src="https://juicy-huntsville-reservations.hollyfree85.chatgpt.site/server-screen.js?v=6"></script>
+</head>
+<body>
+  <header class="masthead">
+    <div class="brand">
+      <img src="../booking/juicy-logo.png" alt="The Juicy Seafood" width="104" height="74">
+      <div><p class="location">Huntsville</p><h1>Server board</h1></div>
+    </div>
+    <div class="connection">
+      <time id="clock"></time>
+      <span id="status" role="status">Connecting…</span>
+    </div>
+  </header>
+  <main>
+    <section class="messages" aria-labelledby="calls-heading">
+      <div class="message-heading">
+        <h2 id="calls-heading">Server messages</h2>
+        <span id="message-page" hidden></span>
+      </div>
+      <div id="alerts" aria-live="polite">
+        <article class="standby"><p>Connecting</p><h3>Opening the board…</h3></article>
+      </div>
+    </section>
+    <section class="occupied" aria-labelledby="occupied-heading">
+      <div class="roster-heading"><h2 id="occupied-heading">Occupied tables</h2><span id="count" hidden></span></div>
+      <ul id="tables"></ul>
+      <p id="empty">Loading tables…</p>
+      <p id="page" hidden></p>
+    </section>
+  </main>
+</body>
+</html>
