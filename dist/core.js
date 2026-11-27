@@ -192,6 +192,26 @@ function tableHistoryRows(s,table='',now=Date.now()){
  const day=dayAt(now);if(s?.day!==day)return [];
  return Object.entries(s.tableHistory||{}).filter(([,event])=>event.day===day).flatMap(([id,event])=>list(event.changes).filter(change=>!table||list(change.tables).includes(table)).map((change,index)=>({id:id+'_'+index,at:event.at,sequence:event.sequence||0,...change}))).sort((a,b)=>b.at-a.at||b.sequence-a.sequence||a.id.localeCompare(b.id));
 }
+// The server screen reads only this limited projection. Keep it in the seating transaction.
+function syncServerScreen(s,cmd){
+ const previous=s.serverScreen?.parties||{}, parties={};
+ for(const p of Object.values(s.parties)){
+  const server=rowOf(s,p.shift,p.rowId).server, tables=members(p);
+  const entry={server,tables,seatedAt:p.at},old=previous[p.id];
+  if(old?.server===server){
+   if(old.focus && tables.includes(old.focus.table))entry.focus=old.focus;
+   for(const [table,at] of Object.entries(old.calls||{})){
+    if(tables.includes(table) && cmd.at-at<120000)(entry.calls||={})[table]=at;
+   }
+  }
+  if(cmd.partyId===p.id){
+   if(cmd.type==='SCREEN_FOCUS' && (!entry.focus||cmd.at>=entry.focus.at))entry.focus={table:cmd.table,at:cmd.at};
+   if(cmd.type==='SERVER_CALL')(entry.calls||={})[cmd.table]=Math.max(cmd.at,entry.calls?.[cmd.table]||0);
+  }
+  parties[p.id]=entry;
+ }
+ s.serverScreen={day:s.day,parties};
+}
 function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.id||!cmd.type||!Number.isFinite(cmd.at))fail('Invalid command.');if(s.receipts[cmd.id]||s.tableHistory?.[cmd.id])return s;if(now-cmd.at>120000&&cmd.type!=='DAILY_RESET')fail('This operation is too old. Reopen the table.','EXPIRED');
  const tableLog=s.tableHistory||{},tableBefore=tableHistoryBefore(s,cmd),tableRestore=cmd.type==='UNDO'?tableHistoryParty(s,s.undo[cmd.undoId]?.party):null;
  const oldBeepers=beeperRows(s),history=copy(s.beeperHistory||{}),historyStartedAt=s.beeperHistoryStartedAt||cmd.at;
@@ -203,6 +223,13 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  case 'WAIT_SAVE':{const name=String(cmd.name||'').trim(),phone=String(cmd.phone||'').trim();if(!name||name.length>100)fail('Enter a guest name (maximum 100 characters).');if(!/^[+()0-9 .-]+$/.test(phone)||phone.replace(/\D/g,'').length<10||phone.replace(/\D/g,'').length>15)fail('Enter a valid phone number (10–15 digits).');s.waiting=s.waiting||{};if(Object.keys(s.waiting).length>=200)fail('Waiting list is full. Remove completed parties first.');s.waiting[cmd.id]={id:cmd.id,name,phone,people:countPeople(cmd.people),at:cmd.at};break;}
  case 'WAIT_STATUS':{const r=s.waiting?.[cmd.waitId];if(!r)fail('This guest was already removed.','CONFLICT');if(typeof cmd.done!=='boolean')fail('Choose Done or Undone.');r.done=cmd.done;break;}
  case 'WAIT_REMOVE':{s.waiting=s.waiting||{};if(!s.waiting[cmd.waitId])fail('This guest was already removed.','CONFLICT');delete s.waiting[cmd.waitId];break;}
+ case 'SCREEN_INIT':break;
+ case 'SCREEN_FOCUS':
+ case 'SERVER_CALL':{
+  const p=active(s,cmd);
+  if(!cmd.partyId||p.shift!==sh||p.rowId!==cmd.rowId||rowOf(s,p.shift,p.rowId).server!==cmd.server)fail('The table or server changed. Select them again.','CONFLICT');
+  break;
+ }
  case 'BEEPER_HISTORY_INIT':break;
  case 'FORMATION_SELECT':{if(!config.formations[cmd.formation])fail('Choose a formation.');if(b.formation&&b.formation!==cmd.formation)fail('Use Edit Formation to change the current formation.','CONFLICT');b.formation=cmd.formation;break;}
  case 'SETUP':{
@@ -274,7 +301,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  s.beeperHistory=retainBeeperHistory(history,now);s.beeperHistoryStartedAt=historyStartedAt;
  s.tableHistory=Object.fromEntries(Object.entries(tableLog).filter(([,e])=>e.day===s.day));
  const tableChanges=tableHistoryChanges(tableBefore,s,cmd,tableRestore);if(tableChanges.length)s.tableHistory[cmd.id]={day:s.day,at:cmd.at,sequence:Object.keys(s.tableHistory).length+1,changes:tableChanges};
- s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];for(const board of Object.values(s.shifts))syncSectionAssignments(board,config);return validate(s);
+ s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];for(const board of Object.values(s.shifts))syncSectionAssignments(board,config);syncServerScreen(s,cmd);return validate(s);
 }
 return {rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
 });
