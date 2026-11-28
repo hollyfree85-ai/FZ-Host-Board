@@ -56,3 +56,14 @@ test('keep active is shared, same-time saves do not repeat, rescheduling rearms'
  s=assign(s,'20:30');assert.equal(C.scheduledCuts(s,at('20:00'))[0].alertAt,at('20:25'));
  s=apply(s,'ROW_EDIT',{rowId:row(s).id,server:'Replacement'});assert.equal(C.scheduledCuts(s,at('20:00')).length,0);
 });
+test('TV schedule follows the active AM/PM rows and shared cut decisions without a seated party',()=>{
+ let state=fixture();
+ state=assign(state,'12:15',{shift:'AM',server:'AM Server'});
+ assert.deepEqual(state.serverScreen.cutSchedule.items,[{server:'AM',at:at('12:15')},{server:'Megan',at:at('20:00')}]);
+ state=assign(state,'21:00',{expectedCutTime:'20:00'});
+ assert.equal(state.serverScreen.cutSchedule.items[1].at,at('21:00'));
+ state=apply(state,'SCHEDULED_CUT_DECISION',{...decision(state),cutTime:'21:00',cut:false},at('20:55'));
+ assert.equal(state.serverScreen.cutSchedule.items.length,1);
+ state=assign(state,'',{shift:'AM',server:'AM Server'});
+ assert.deepEqual(state.serverScreen.cutSchedule,{version:1,items:[]});
+});

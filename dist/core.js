@@ -270,7 +270,9 @@ function syncServerScreen(s,cmd){
   const entry=parties[msg.partyId];
   if(cmd.at-msg.at>=180000 || entry?.server!==msg.server || !entry?.tables.includes(msg.table))delete s.serverMessages[key];
  }
- s.serverScreen={day:s.day,parties};
+ const cuts=scheduledCuts(s,cmd.at).map(({row,at})=>({server:staffName(row.server),at}));
+ // Firebase omits empty arrays. The version distinguishes an empty schedule from an older host.
+ s.serverScreen={day:s.day,parties,cutSchedule:{version:1,items:cuts}};
 }
 function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.id||!cmd.type||!Number.isFinite(cmd.at))fail('Invalid command.');if(s.receipts[cmd.id]||s.tableHistory?.[cmd.id])return s;if(now-cmd.at>120000&&cmd.type!=='DAILY_RESET')fail('This operation is too old. Reopen the table.','EXPIRED');
  const tableLog=s.tableHistory||{},tableBefore=tableHistoryBefore(s,cmd),tableRestore=cmd.type==='UNDO'?tableHistoryParty(s,s.undo[cmd.undoId]?.party):null;
