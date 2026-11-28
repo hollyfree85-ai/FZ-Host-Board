@@ -353,6 +353,7 @@ async function handleVoiceCommand(value){clearTimeout(toastTimer);$('toast').sty
 async function boot(){initClassic();
  const options=await fetch('./app-config.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('App configuration missing.');return r.json();});
  const guestListsPaused=options.guestListsPaused===true;
+ if(options.hideBeeperShortcut)hiddenOperations.add('beeper');
  if(options.teamToolsHidden){
    hiddenOperations.add('chat');
    hiddenOperations.add('shout');
