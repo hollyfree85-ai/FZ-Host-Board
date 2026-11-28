@@ -432,3 +432,9 @@ nav button[data-pane] { font-size: clamp(.875rem, 1.12vw, 1.45rem); line-height:
   nav { grid-template-columns: .9fr .85fr 1.25fr .8fr 1.2fr; gap: 3px; }
   nav button[data-pane] { font-size: clamp(.75rem, 3.5vw, .9rem); padding-inline: 1px; }
 }
+
+/* Hide the paused lists during startup as well as after the role is selected. */
+html[data-guest-lists="paused"] [data-pane="waiting"],
+html[data-guest-lists="paused"] [data-op="reservations"],
+html[data-guest-lists="paused"] #waiting { display: none; }
+html[data-guest-lists="paused"] nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
