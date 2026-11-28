@@ -1,19 +1,58 @@
-const {test}=require('node:test'),assert=require('node:assert/strict'),C=require('../dist/core.js');
-const config={tables:['A1','A2','A3','A4','L1','L2','R1','R2','R3','Bar 1'].map(id=>({id})),formations:{test:{1:['A1'],2:['A2'],3:['A3'],4:['A4'],5:['L1'],6:['L2'],7:['R1'],8:['R2'],9:['R3'],BAR:['Bar 1']}}};
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const C=require('../dist/core.js');
+const config={tables:['A1','A2'].map(id=>({id})),formations:{two:{1:['A1'],2:['A2']}}};
+const day='2026-11-27', at=time=>C.reservationTime(day,time);
 let seq=0;
-const time=(s,t)=>C.reservationTime(s.day,t);
-function fixture(day='2026-11-18',closer='3',count=9){const s=C.initial(config,C.reservationTime(day,'18:00'));s.shifts.PM.formation='test';s.shifts.PM.rows=[...Array.from({length:count},(_,i)=>String(i+1)),'BAR'].map(section=>({id:section,server:'Server '+section,section,workShift:'PM',closer:section===closer,cut:false,entries:[]}));s.shifts.PM.assignments=Object.fromEntries(Object.entries(config.formations.test).flatMap(([sec,ids])=>ids.map(id=>[id,sec])));return s;}
-const command=(s,type,extra={})=>({type,id:'cut_'+(++seq),at:time(s,'20:15'),day:s.day,shift:'PM',...extra});
-function decide(s,rowId,cut,at){const p=C.pmCutPlan(s,at);return C.reduce(s,command(s,'PM_CUT_DECISION',{rowId,cut,at,stage:p.current.id,expectedRoster:p.key}),config);}
-for(const [day,first,second,count]of [['2026-11-15','20:15','21:00',3],['2026-11-16','20:15','21:00',3],['2026-11-17','20:15','21:00',3],['2026-11-18','20:15','21:00',3],['2026-11-19','20:15','21:00',3],['2026-11-20','21:15','22:00',4],['2026-11-21','21:15','22:00',4]])test('PM cut schedule '+day,()=>{const p=C.pmCutPlan(fixture(day));assert.deepEqual(p.stages.map(s=>s.time),[first,second]);assert.equal(p.remaining,count);assert.equal(p.stages[0].at-p.stages[0].alertAt,300000);});
-test('Weekday first cut includes Double, Long and tomorrow AM; BAR, S1 and closer are protected',()=>{const s=fixture();s.shifts.PM.rows.find(r=>r.id==='2').workShift='Double';s.shifts.PM.rows.find(r=>r.id==='4').workShift='Long Shift';s.shifts.PM.rows.find(r=>r.id==='5').workTomorrowAM=true;for(const id of ['BAR','1','3'])s.shifts.PM.rows.find(r=>r.id===id).workShift='Double';const p=C.pmCutPlan(s,time(s,'20:10'));assert.deepEqual(p.stages[0].candidates.map(r=>r.id),['2','4','5']);assert.deepEqual(p.closing.map(x=>x.row.id),['1','3','BAR']);assert.equal(p.current.id,'first');assert.equal(C.pmCutPlan(s,time(s,'20:09')).current,null);assert.equal(C.cutAdvice(s,'PM',s.shifts.PM.rows.find(r=>r.id==='2'),time(s,'20:15')).due,true);});
-for(const closer of ['3','4','5','1','BAR'])test('Weekend closing team has 4 unique people, closer '+closer,()=>{const s=fixture('2026-11-20',closer);const p=C.pmCutPlan(s,time(s,'22:00')),ids=p.closing.map(x=>x.row.id);assert.equal(ids.length,4);assert.equal(new Set(ids).size,4);for(const id of ['BAR','1',closer])assert(ids.includes(id));if(closer==='4')assert(ids.includes('5'));if(closer==='5')assert(ids.includes('4'));assert(p.stages[1].candidates.every(r=>!ids.includes(r.id)));});
-test('Missing S1 and overlapping closer roles retain requested staffing without inventing servers',()=>{const s=fixture('2026-11-18','BAR',5);s.shifts.PM.rows=s.shifts.PM.rows.filter(r=>r.id!=='1');assert.equal(C.pmCutPlan(s).closing.length,3);s.shifts.PM.rows=s.shifts.PM.rows.slice(0,2);const p=C.pmCutPlan(s);assert.equal(p.shortStaff,true);assert.equal(p.closing.length,2);assert.equal(p.stages[1].candidates.length,0);});
-test('Weekend first cut stops after 4 confirmations and second cut leaves exactly 4',()=>{let s=fixture('2026-11-20','3');for(const r of s.shifts.PM.rows)if(['2','4','5','6','7','8','9'].includes(r.id))r.workShift='Double';const at=time(s,'21:15');let applied=0;for(;;){const p=C.pmCutPlan(s,at),r=p.current.candidates[0];if(!r)break;s=decide(s,r.id,true,at);applied++;assert(applied<=4);}assert.equal(applied,4);assert.equal(s.shifts.PM.rows.filter(r=>!r.cut).length,6);const second=time(s,'22:00');for(;;){const r=C.pmCutPlan(s,second).current.candidates[0];if(!r)break;s=decide(s,r.id,true,second);}assert.equal(s.shifts.PM.rows.filter(r=>!r.cut).length,4);assert.deepEqual(s.shifts.PM.rows.filter(r=>!r.cut).map(r=>r.id),['1','3','4','BAR']);});
-test('Weekend with 7 total staff cuts only 3 and never reduces closing team',()=>{let s=fixture('2026-11-21','3',6);for(const r of s.shifts.PM.rows)r.workShift='Long Shift';const at=time(s,'21:15');let count=0;while(C.pmCutPlan(s,at).current.candidates.length){s=decide(s,C.pmCutPlan(s,at).current.candidates[0].id,true,at);count++;}assert.equal(count,3);assert.equal(s.shifts.PM.rows.filter(r=>!r.cut).length,4);});
-test('NOT CUT is shared, keeps rotation and parties, and is reconsidered at second cut',()=>{let s=fixture();s.shifts.PM.rows[1].workTomorrowAM=true;const at=time(s,'20:15'),before=JSON.stringify(s.tables);s=decide(s,'2',false,at);assert.equal(s.shifts.PM.rows[1].cut,false);assert(!C.pmCutPlan(s,at).current.candidates.some(r=>r.id==='2'));assert(C.pmCutPlan(s,time(s,'20:55')).current.candidates.some(r=>r.id==='2'));assert.equal(JSON.stringify(s.tables),before);});
-test('Stale multi-tablet cut decisions and protected or early cuts are rejected',()=>{let s=fixture();s.shifts.PM.rows[1].workShift='Double';const at=time(s,'20:15'),p=C.pmCutPlan(s,at),cmd=command(s,'PM_CUT_DECISION',{rowId:'2',cut:true,stage:'first',expectedRoster:p.key,at});const saved=decide(s,'2',false,at);assert.throws(()=>C.reduce(saved,cmd,config),/changed on another device/);assert.throws(()=>C.reduce(s,{...cmd,rowId:'3'},config),/no longer recommended/);assert.throws(()=>C.reduce(s,{...cmd,at:time(s,'20:09')},config),/not current/);assert.throws(()=>C.reduce(s,{...cmd,at:time(s,'21:00')},config),/not current/);s.shifts.PM.rows[1].closer=true;assert.throws(()=>C.reduce(s,cmd,config),/changed on another device/);});
-test('CUT preserves seated party, table state and history; retry is idempotent',()=>{let s=fixture();s.shifts.PM.rows[1].workShift='Double';s=C.reduce(s,command(s,'SEAT',{table:'A2',rowId:'2',people:2,secondary:[],at:time(s,'18:00')}),config);const before=JSON.stringify([s.tables,s.parties,s.tableHistory,s.shifts.PM.rows[1].entries]),at=time(s,'20:15'),p=C.pmCutPlan(s,at),cmd=command(s,'PM_CUT_DECISION',{rowId:'2',cut:true,stage:'first',expectedRoster:p.key,at});s=C.reduce(s,cmd,config);assert.equal(s.shifts.PM.rows[1].cut,true);assert.equal(JSON.stringify([s.tables,s.parties,s.tableHistory,s.shifts.PM.rows[1].entries]),before);assert.deepEqual(C.reduce(s,cmd,config),s);});
-test('PM settings persist across formation edits, unique closer replaces old closer, AM stays separate',()=>{let s=fixture();s=C.reduce(s,command(s,'SECTION_SERVER',{formation:'test',section:'2',server:'Server 2',expectedOwner:'2',closer:true,workTomorrowAM:true}),config);assert.equal(s.shifts.PM.rows.filter(r=>r.closer).length,1);assert.equal(s.shifts.PM.rows[1].closer,true);const servers=Object.fromEntries(s.shifts.PM.rows.map(r=>[r.section,r.server]));s=C.reduce(s,command(s,'FORMATION',{formation:'test',servers}),config);assert.equal(s.shifts.PM.rows[1].closer,true);assert.equal(s.shifts.PM.rows[1].workTomorrowAM,true);assert.throws(()=>C.reduce(s,command(s,'SECTION_SERVER',{shift:'AM',formation:'test',section:'2',server:'Morning',closer:true}),config),/PM shift/);s=C.reduce(s,command(s,'CLEAR_SHIFT'),config);assert.equal(s.shifts.PM.rows.length,0);assert.equal(s.shifts.PM.cutReviews,undefined);});
-test('Formation PM flags save atomically and reject conflicting duplicate-employee flags',()=>{let s=fixture(),servers=Object.fromEntries(s.shifts.PM.rows.map(r=>[r.section,r.server]));s=C.reduce(s,command(s,'FORMATION',{formation:'test',servers,pmFlags:s.shifts.PM.rows.map(r=>({server:r.server,closer:r.id==='5',workTomorrowAM:r.id==='2'}))}),config);assert.equal(s.shifts.PM.rows.find(r=>r.id==='5').closer,true);assert.equal(s.shifts.PM.rows.find(r=>r.id==='3').closer,false);assert.equal(s.shifts.PM.rows.find(r=>r.id==='2').workTomorrowAM,true);assert.throws(()=>C.reduce(s,command(s,'FORMATION',{formation:'test',servers,pmFlags:[{server:'Server 2',closer:true,workTomorrowAM:false},{server:'Server 3',closer:true,workTomorrowAM:false}]}),config),/one PM closer/);});
-test('Old day cut reviews cannot alert on the next operational day, including DST schedules',()=>{const s=fixture('2026-11-18');assert.equal(C.pmCutPlan(s,C.reservationTime('2026-11-19','20:15')).current,null);for(const day of ['2026-03-08','2026-11-01']){const schedule=C.cutSchedule(day);const local=new Intl.DateTimeFormat('en-US',{timeZone:'America/Chicago',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(schedule.stages[0].at);assert.equal(local,'20:15');}});
+function apply(state,type,values={},now=at('15:00')){
+ return C.reduce(state,{day:state.day,shift:'PM',at:now,id:'cut_'+(++seq),type,...values},config);
+}
+function assign(state,time,values={}){
+ return apply(state,'SECTION_SERVER',{formation:'two',section:'1',server:'Megan Meadows',cutTime:time,...values});
+}
+const fixture=()=>assign(C.initial(config,at('15:00')),'20:00');
+const row=s=>s.shifts.PM.rows[0];
+const decision=s=>({rowId:row(s).id,cutTime:'20:00',server:row(s).server,cut:true});
+test('both shifts support explicit times and old closer or tomorrow flags do not schedule a cut',()=>{
+ let s=fixture();s=assign(s,'12:15',{shift:'AM',server:'AM Server'});
+ s=apply(s,'SECTION_SERVER',{formation:'two',section:'2',server:'Legacy',closer:true,workTomorrowAM:true});
+ const items=C.scheduledCuts(s,at('11:00'));
+ assert.deepEqual(items.map(x=>[x.shift,x.row.server,x.alertAt]),[['AM','AM Server',at('12:10')],['PM','Megan Meadows',at('19:55')]]);
+ assert.equal(C.cutTimeLabel('00:05'),'12:05 AM');assert.equal(C.cutTimeLabel('12:07'),'12:07 PM');
+ for(const bad of ['24:00','00:60','9:00',false])assert.throws(()=>assign(s,bad),/valid cut time/);
+});
+test('cut times follow a server across sections, clear explicitly and reject stale edits',()=>{
+ let s=fixture(); s=apply(s,'FORMATION',{formation:'two',servers:{1:'New Server',2:'Megan Meadows'}});
+ assert.equal(row(s).cutTime,'20:00');assert.equal(row(s).section,'2');
+ assert.equal(s.shifts.PM.rows.find(x=>x.server==='New Server').cutTime,undefined);
+ s=assign(s,'21:00',{section:'2',expectedCutTime:'20:00'});
+ assert.throws(()=>assign(s,'22:00',{section:'2',expectedCutTime:'20:00'}),/another device/);
+ assert.throws(()=>apply(s,'FORMATION',{formation:'two',servers:{1:'New Server',2:'Megan Meadows'},cutTimes:[{server:'Megan Meadows',time:'21:30',expected:'20:00'}]}),/another device/);
+ s=assign(s,'',{section:'2',expectedCutTime:'21:00'});assert.deepEqual(C.scheduledCuts(s,at('19:55')),[]);
+});
+test('after midnight belongs to the evening workday and reminders expire on rollover',()=>{
+ const s=assign(fixture(),'00:02'),next='2026-11-28',item=C.scheduledCuts(s,at('23:56'))[0];
+ assert.equal(item.at,C.reservationTime(next,'00:02'));assert.equal(item.alertAt,at('23:57'));
+ assert.equal(C.scheduledCuts(s,C.reservationTime(next,'03:59')).length,1);
+ assert.equal(C.scheduledCuts(s,C.reservationTime(next,'04:00')).length,0);
+ for(const date of ['2026-03-08','2026-11-01'])assert.equal(C.cutTimeAt(date,'20:00'),C.reservationTime(date,'20:00'));
+});
+test('decisions revalidate the employee, current time and active schedule; existing parties stay seated',()=>{
+ let s=fixture();s=apply(s,'SEAT',{table:'A1',rowId:row(s).id,people:2,secondary:[]});
+ const original=structuredClone([s.tables,s.parties,row(s).entries]);
+ const cmd=decision(s);
+ assert.throws(()=>apply(s,'SCHEDULED_CUT_DECISION',cmd,at('19:55')-1),/changed/);
+ assert.throws(()=>apply(s,'SCHEDULED_CUT_DECISION',{...cmd,server:'Someone Else'},at('19:55')),/changed/);
+ const later=assign(s,'20:10');assert.throws(()=>apply(later,'SCHEDULED_CUT_DECISION',cmd,at('20:15')),/changed/);
+ s=apply(s,'SCHEDULED_CUT_DECISION',cmd,at('19:55'));assert.equal(row(s).cut,true);
+ assert.deepEqual([s.tables,s.parties,row(s).entries],original);
+ assert.throws(()=>apply(s,'SCHEDULED_CUT_DECISION',cmd,at('19:59')),/changed/);
+ s=apply(s,'CUT',{rowId:row(s).id,cut:false},at('20:01'));assert.equal(C.scheduledCuts(s,at('20:02')).length,0);
+});
+test('keep active is shared, same-time saves do not repeat, rescheduling rearms',()=>{
+ let s=fixture();
+ s=apply(s,'SCHEDULED_CUT_DECISION',{...decision(s),cut:false},at('19:55'));assert.equal(row(s).cut,false);
+ s=assign(s,'20:00');assert.equal(C.scheduledCuts(s,at('20:00')).length,0);
+ s=assign(s,'20:30');assert.equal(C.scheduledCuts(s,at('20:00'))[0].alertAt,at('20:25'));
+ s=apply(s,'ROW_EDIT',{rowId:row(s).id,server:'Replacement'});assert.equal(C.scheduledCuts(s,at('20:00')).length,0);
+});

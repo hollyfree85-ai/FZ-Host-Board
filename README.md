@@ -1,3 +1,9 @@
+## 1.2.99 — Scheduled server cuts
+
+In Board → Formation & Servers, enter a **Cut time** beside an employee and press **Save**. The time appears on that employee’s Board row. Clearing and saving the field cancels their reminder. Each AM or PM assignment uses Huntsville local time.
+
+While the host app is open, signed-in hosts receive a reminder five minutes before each scheduled cut. **Cut Server** stops new seating for that employee. **Keep Active** acknowledges the reminder across devices. **Remind Me in 5 Min** postpones it on the current device.
+
 ## 1.2.84 — accept reservations independently of Floor capacity
 
 Save, edit and restore reservations without READY-table, formation, combination or existing-booking capacity gates. Online booking follows the same policy. Table suitability and ownership are still validated when seating guests.

@@ -148,50 +148,48 @@ function available(s,ids,own=''){if(new Set(ids).size!==ids.length)fail('Choose 
 function risk(s,shift,rowId,at){const r=rowOf(s,shift,rowId),guard=['megan meadows','megan meadow','a.j.','jesus ovalle-munoz','mia burress','mia gibson','ashley garcia'].includes(canonical(r.server).toLowerCase());return r.entries.filter(e=>e.kind==='party'&&at-e.at<300000&&at>=e.at&&(guard||e.people>5)).map(e=>({id:e.id,table:e.primary,people:e.people,at:e.at}));}
 function countPeople(v){const n=Number(v);if(!Number.isInteger(n)||n<1||n>120)fail('Enter 1–120 guests.');return n;}
 function validate(s){const entries=new Map();for(const sh of ['AM','PM'])for(const r of s.shifts[sh].rows){checkSpace(r);for(const e of r.entries){if(entries.has(e.id))fail('Duplicate Board entry.');entries.set(e.id,{row:r.id,shift:sh,e});}}for(const p of Object.values(s.parties)){const ref=entries.get(p.id);if(!ref||ref.shift!==p.shift||ref.row!==p.rowId||ref.e.kind!=='party')fail('Party has no matching Board entry.');for(const id of members(p))if(s.tables[id]?.partyId!==p.id||s.tables[id]?.status!=='seated')fail('Party / Floor link is incomplete.');}for(const t of Object.values(s.tables))if(t.partyId&&!s.parties[t.partyId])fail('Floor has an unresolved party.');return s;}
-// PM cut rules use the restaurant's operational day and Huntsville clock.
-function cutSchedule(day){
- const d=new Date(day+'T12:00:00Z').getUTCDay(),weekend=d===5||d===6;
- return {weekend,remaining:weekend?4:3,stages:[['first',weekend?'21:15':'20:15'],['second',weekend?'22:00':'21:00']].map(([id,time])=>{const at=reservationTime(day,time);return {id,time,at,alertAt:at-5*60000};})};
+const validCutTime = time => typeof time === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(time);
+function cutTimeLabel(time) {
+ if (!validCutTime(time)) return '';
+ const hour = Number(time.slice(0, 2));
+ return (hour % 12 || 12) + time.slice(2) + (hour < 12 ? ' AM' : ' PM');
 }
-const cutSections=row=>String(row.section||'').split(/\s*\/\s*/);
-const earlyCut=row=>row.workShift==='Double'||row.workShift==='Long Shift'||row.workTomorrowAM===true;
-function cutRowKey(row){return JSON.stringify([row.server,row.section,row.workShift||'PM',!!row.closer,!!row.workTomorrowAM]);}
-function cutRosterKey(state){const b=state.shifts?.PM||{};return JSON.stringify([state.day,b.formation,list(b.rows).map(r=>[r.id,cutRowKey(r),!!r.cut]),b.assignments||{},b.cutReviews||{}]);}
-function pmCutPlan(state,now=Date.now()){
- const schedule=cutSchedule(state.day),board=state.shifts?.PM||{},rows=list(board.rows).filter(r=>!r.cut&&canonical(r.server)&&r.section).sort(sectionOrder),keep=new Map();
- const add=(row,reason)=>{if(keep.has(row.id))keep.get(row.id).push(reason);else keep.set(row.id,[reason]);};
- for(const row of rows){if(isBarSection(row.section))add(row,'BAR');if(cutSections(row).includes('1'))add(row,'Section 1');if(row.closer)add(row,'Closer');}
- const coverageOrder=(a,b)=>Number(earlyCut(a))-Number(earlyCut(b))||sectionOrder(a,b);
- if(schedule.weekend&&keep.size<schedule.remaining){const extra=rows.filter(r=>!keep.has(r.id)&&cutSections(r).some(s=>s==='4'||s==='5')).sort(coverageOrder)[0];if(extra)add(extra,'Extra closing section (S4 / S5)');}
- // Overlapping roles or a formation without S1 still need the requested headcount.
- for(const row of rows.filter(r=>!keep.has(r.id)).sort(coverageOrder)){if(keep.size>=schedule.remaining)break;add(row,'Closing coverage');}
- const closing=rows.filter(r=>keep.has(r.id)).map(row=>({row,reasons:keep.get(row.id)}));
- const reviewed=(stage,row)=>board.cutReviews?.[stage]?.decisions?.[row.id]?.rowKey===cutRowKey(row);
- const firstCuts=Object.values(board.cutReviews?.first?.decisions||{}).filter(d=>d.cut===true).length;
- const candidates=rows.filter(r=>!keep.has(r.id));
- const first=candidates.filter(r=>earlyCut(r)&&!reviewed('first',r)).sort((a,b)=>Number(!['Double','Long Shift'].includes(a.workShift))-Number(!['Double','Long Shift'].includes(b.workShift))||sectionOrder(a,b));
- const firstLimit=schedule.weekend?Math.max(0,4-firstCuts):first.length;
- const windowOpen=dayAt(now)===state.day&&now<reservationTime(state.day,schedule.weekend?'23:00':'22:00');
- const stages=schedule.stages.map(stage=>({...stage,candidates:stage.id==='first'?first.slice(0,firstLimit):candidates.filter(r=>!reviewed('second',r)),due:now>=stage.at,reviewReady:windowOpen&&now>=stage.alertAt}));
- const current=windowOpen?[...stages].reverse().find(s=>s.reviewReady)||null:null;
- return {...schedule,rows,closing,stages,current,firstCuts,closerMissing:!rows.some(r=>r.closer),shortStaff:rows.length<schedule.remaining,key:cutRosterKey(state)};
-}
-function cutAdvice(state,shift,row,now=Date.now(),pmPlan=null){
- if(shift==='PM'){
-  if(row.cut)return {label:'CUT',due:false,time:''};
-  const plan=pmPlan||pmCutPlan(state,now),kept=plan.closing.find(r=>r.row.id===row.id);
-  if(kept)return {label:'LAST CUT · '+kept.reasons.join(' / '),protectedLast:true,due:false,time:''};
-  const stage=(plan.current?.candidates.some(r=>r.id===row.id)?plan.current:null)||plan.stages.find(s=>(!plan.current||s.at>plan.current.at)&&s.candidates.some(r=>r.id===row.id));
-  if(!stage)return {label:'NOT CUT · manager decision',due:false,time:''};
-  const [h,m]=stage.time.split(':'),label=(Number(h)-12)+':'+m+' PM';
-  return {time:stage.time,due:now>=stage.at,protectedLast:false,label:(now>=stage.at?'CUT REVIEW DUE · ':'CUT REVIEW ')+label};
+let cutClockDay = '', cutClockTimes = new Map();
+function cutTimeAt(day, time) {
+ if (!validCutTime(time)) return NaN;
+ if (day !== cutClockDay) { cutClockDay = day; cutClockTimes.clear(); }
+ if (!cutClockTimes.has(time)) {
+  let date = day;
+  // The restaurant workday ends at 4 AM the following morning.
+  if (time < '04:00') {
+   const next = new Date(day + 'T12:00:00Z');
+   next.setUTCDate(next.getUTCDate() + 1);
+   date = next.toISOString().slice(0, 10);
+  }
+  cutClockTimes.set(time, reservationTime(date, time));
  }
- const day=new Date(state.day+'T12:00:00Z').getUTCDay(),weekend=day===0||day>=5,work=row.workShift||shift;
- if(isBarSection(row.section))return {label:'BAR · last cut',protectedLast:true,due:false,time:''};
- if(work!=='Double')return {label:work==='Long Shift'?'Long starts '+(row.longStart||'14:00'):'Manager cut',due:false,time:''};
- const long2=Object.values(state.shifts).some(b=>list(b.rows).some(r=>!r.cut&&r.workShift==='Long Shift'&&(r.longStart||'14:00')==='14:00'));
- const time=long2?'14:00':weekend?'15:00':'15:30',due=now>=reservationTime(state.day,time),[h,m]=time.split(':');
- return {time,due,protectedLast:false,label:(due?'CUT DUE · ':'CUT ')+(Number(h)-12)+':'+m+' PM · '+(long2?'Long 2 PM has arrived':'Double AM cut')};
+ return cutClockTimes.get(time);
+}
+function saveCutTime(row, time, expected) {
+ if (time !== '' && !validCutTime(time)) fail('Enter a valid cut time.');
+ const current = row.cutTime || '';
+ if (time === current) return;
+ if (expected !== undefined && expected !== current) fail('Cut time changed on another device. Reopen Formation & Servers.', 'CONFLICT');
+ if (time) row.cutTime = time;
+ else delete row.cutTime;
+ delete row.reviewedCutTime;
+}
+function scheduledCuts(state, now) {
+ if (!state || state.day !== dayAt(now)) return [];
+ const scheduled = [];
+ for (const shift of ['AM', 'PM']) {
+  for (const row of list(state.shifts[shift]?.rows)) {
+   if (row.cut || !row.server || !row.section || !validCutTime(row.cutTime) || row.reviewedCutTime === row.cutTime) continue;
+   const at = cutTimeAt(state.day, row.cutTime);
+   scheduled.push({row, shift, at, alertAt: at - 5 * 60000});
+  }
+ }
+ return scheduled.sort((a, b) => a.at - b.at);
 }
 function placeSectionLabels(width,height,tables,groups,extras=[]){
  const gap=3;
@@ -317,6 +315,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
   if(cmd.beeper!==undefined){const value=String(cmd.beeper||'');if(value&&(!/^\d+$/.test(value)||+value<1||+value>20))fail('Beeper must be 1–20.');if(value&&b.rows.some(r=>r.id!==target.id&&r.beeper===value))fail('Beeper '+value+' is assigned to another employee.');target.beeper=value;}
   if(cmd.workShift!==undefined){if(!['AM','PM','Double','Long Shift'].includes(cmd.workShift))fail('Choose AM, PM, Double Shift or Long Shift.');target.workShift=cmd.workShift;}
   if(cmd.longStart!==undefined){if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(cmd.longStart))fail('Choose a valid Long Shift start time.');target.longStart=cmd.longStart;}
+  if(cmd.cutTime!==undefined)saveCutTime(target,cmd.cutTime,cmd.expectedCutTime);
   if(cmd.lastCut!==undefined)target.lastCut=!!cmd.lastCut;
   if(cmd.closer!==undefined){if(sh!=='PM'||typeof cmd.closer!=='boolean')fail('Closer is a PM shift setting.');if(cmd.closer)for(const row of b.rows)row.closer=false;target.closer=cmd.closer;}
   if(cmd.workTomorrowAM!==undefined){if(sh!=='PM'||typeof cmd.workTomorrowAM!=='boolean')fail('Work tomorrow AM is a PM shift setting.');target.workTomorrowAM=cmd.workTomorrowAM;}
@@ -327,6 +326,16 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
   const assigned=new Map(),usedTables=new Set();for(const [sec,ids]of Object.entries(form)){const server=canonical(cmd.servers?.[sec]);if(server){let sections=assigned.get(server);if(!sections)assigned.set(server,sections=[]);sections.push(sec);}for(const table of list(ids)){if(!s.tables[table]||usedTables.has(table))fail('Invalid or duplicate table '+table);usedTables.add(table);}}
   const matched=new Set(),next=[];for(const old of b.rows){const sections=assigned.get(canonical(old.server));if(sections&&!matched.has(canonical(old.server))&&old===(b.rows.find(r=>canonical(r.server)===canonical(old.server)&&!r.cut)||b.rows.find(r=>canonical(r.server)===canonical(old.server)))){old.section=sections.join(' / ');old.cut=false;matched.add(canonical(old.server));next.push(old);}else{old.section='';old.cut=true;next.push(old);}}
   for(const [server,sections]of assigned)if(!matched.has(server)){next.push({id:'row_'+cmd.id+'_'+next.length,server,section:sections.join(' / '),beeper:'',cut:false,barAuto:true,entries:[]});matched.add(server);}
+  if(cmd.cutTimes!==undefined){
+   if(!Array.isArray(cmd.cutTimes))fail('Invalid cut times.');
+   const seen=new Set();
+   for(const change of cmd.cutTimes){
+    const name=canonical(change.server),row=next.find(r=>!r.cut&&canonical(r.server)===name);
+    if(!row||seen.has(name))fail('Check the server cut times in this formation.');
+    seen.add(name);
+    saveCutTime(row,change.time,change.expected);
+   }
+  }
   if(cmd.pmFlags!==undefined){
    if(sh!=='PM'||!Array.isArray(cmd.pmFlags))fail('Closer settings belong to PM.');
    const flags=new Map();for(const value of cmd.pmFlags){const name=canonical(value.server);if(!assigned.has(name)||typeof value.closer!=='boolean'||typeof value.workTomorrowAM!=='boolean')fail('Invalid PM employee settings.');const previous=flags.get(name);if(previous&&(previous.closer!==value.closer||previous.workTomorrowAM!==value.workTomorrowAM))fail('Use the same PM settings for each section owned by '+name);flags.set(name,value);}
@@ -347,6 +356,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
   const queue=rotationRows(b);
   const row={id:'row_'+cmd.id,server,section:sec,beeper:'',cut:false,barAuto:true,entries:[],
    arrivalOffset:Math.max(0,...queue.map(rotationTurns)),arrivalOffsetShown:true,arrivalOrder:s.revision+1};
+  if(cmd.cutTime!==undefined)saveCutTime(row,cmd.cutTime);
   b.rows.push(row);
   (b.addedSections||={})[sec]=ids;
   for(const id of ids)b.assignments[id]=row.id;
@@ -369,18 +379,17 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
    if(b.assignments[table])mapping[table]=b.assignments[table];else delete mapping[table];
   }
   b.assignments=mapping;break;}
- case 'PM_CUT_DECISION':{
-  if(sh!=='PM'||typeof cmd.cut!=='boolean')fail('Choose CUT or NOT CUT for the PM shift.');
-  const plan=pmCutPlan(s,cmd.at),stage=plan.current;
-  if(!stage||stage.id!==cmd.stage)fail('This cut review is not current. Reopen the review.','CONFLICT');
-  if(cmd.expectedRoster!==plan.key)fail('Staff or cut decisions changed on another device. Review the updated names.','CONFLICT');
-  const row=stage.candidates.find(r=>r.id===cmd.rowId);if(!row)fail('This employee is no longer recommended for this cut.','CONFLICT');
-  b.cutReviews=b.cutReviews||{};const review=b.cutReviews[stage.id]||(b.cutReviews[stage.id]={decisions:{}});review.decisions=review.decisions||{};
-  review.decisions[row.id]={server:row.server,rowKey:cutRowKey(row),cut:cmd.cut,at:cmd.at};
-  if(cmd.cut){row.cut=true;delete b.deferredTurns?.[row.id];}break;}
- case 'CUT':{const r=rowOf(s,sh,cmd.rowId);r.cut=!!cmd.cut;if(r.cut)delete b.deferredTurns?.[r.id];break;}
+ case 'PM_CUT_DECISION':fail('Cut reviews now use saved employee cut times. Refresh the app.', 'CONFLICT');break;
+ case 'SCHEDULED_CUT_DECISION':{
+  const row=rowOf(s,sh,cmd.rowId);
+  if(typeof cmd.cut!=='boolean'||!validCutTime(cmd.cutTime)||row.cut||!row.section||row.server!==cmd.server||row.cutTime!==cmd.cutTime||row.reviewedCutTime===row.cutTime||cmd.at<cutTimeAt(s.day,row.cutTime)-5*60000)
+   fail('This cut reminder changed or was already handled.', 'CONFLICT');
+  row.reviewedCutTime=row.cutTime;
+  if(cmd.cut){row.cut=true;delete b.deferredTurns?.[row.id];}
+  break;}
+ case 'CUT':{const r=rowOf(s,sh,cmd.rowId);r.cut=!!cmd.cut;if(r.cut){delete b.deferredTurns?.[r.id];if(r.cutTime)r.reviewedCutTime=r.cutTime;}break;}
  case 'BEEPER':{const r=rowOf(s,sh,cmd.rowId),value=String(cmd.beeper||'');if(value&&(!/^\d+$/.test(value)||+value<1||+value>20))fail('Beeper must be 1–20.');if(value&&b.rows.some(x=>x.id!==r.id&&x.beeper===value))fail('Beeper '+value+' is assigned to another employee.');r.beeper=value;break;}
- case 'ROW_EDIT':{const r=rowOf(s,sh,cmd.rowId);if(cmd.server){if(canonical(cmd.server)!==canonical(r.server))delete b.deferredTurns?.[r.id];r.server=canonical(cmd.server);}if(cmd.section!=null)r.section=String(cmd.section);if(cmd.barAuto!=null)r.barAuto=!!cmd.barAuto;autoSkip(r,sh);checkSpace(r);break;}
+ case 'ROW_EDIT':{const r=rowOf(s,sh,cmd.rowId);if(cmd.server){if(canonical(cmd.server)!==canonical(r.server)){delete b.deferredTurns?.[r.id];delete r.cutTime;delete r.reviewedCutTime;}r.server=canonical(cmd.server);}if(cmd.section!=null)r.section=String(cmd.section);if(cmd.barAuto!=null)r.barAuto=!!cmd.barAuto;autoSkip(r,sh);checkSpace(r);break;}
  case 'SKIP':{const r=rowOf(s,sh,cmd.rowId);if(cmd.entryId){const e=r.entries.find(x=>x.id===cmd.entryId);if(!e||e.kind!=='manual')fail('Only a manual SKIP can be removed.');r.entries=r.entries.filter(x=>x.id!==cmd.entryId);}else{const count=cmd.count===undefined?1:Number(cmd.count);if(!Number.isInteger(count)||count<1||count>60)fail('Enter 1–60 skips.');rememberPassedTurn(s,sh,r,config,cmd.at);for(let i=0;i<count;i++)r.entries.push({id:i?cmd.id+'_'+i:cmd.id,kind:'manual',at:cmd.at});}checkSpace(r);break;}
  case 'BAR_REPAIR':{const r=rowOf(s,sh,cmd.rowId);if(sh!=='PM'||!String(r.section).toUpperCase().includes('BAR'))fail('Choose a PM BAR row.');let count=0,wasDue=false;r.entries=r.entries.filter(e=>{if(e.kind==='auto')return false;if(e.kind==='party'){count++;wasDue=count%2===0;return true;}if(e.kind==='manual'&&wasDue){wasDue=false;return false;}wasDue=false;return true;});r.barAuto=true;autoSkip(r,sh);checkSpace(r);break;}
  case 'CORRECT':{const target=sh==='AM'?'PM':'AM';if(s.shifts[target].rows.some(r=>r.entries.length)||s.shifts[target].rows.length)fail('The target shift is not empty. Clear or review it before correction.');s.shifts[target]=copy(b);s.shifts[sh]=emptyShift();for(const r of s.shifts[target].rows)autoSkip(r,target);Object.values(s.parties).forEach(p=>{if(p.shift===sh)p.shift=target;});Object.values(s.undo).forEach(u=>{if(u.shift===sh){u.shift=target;u.party.shift=target;}});break;}
@@ -395,7 +404,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  const tableChanges=tableHistoryChanges(tableBefore,s,cmd,tableRestore);if(tableChanges.length)s.tableHistory[cmd.id]={day:s.day,at:cmd.at,sequence:Object.keys(s.tableHistory).length+1,changes:tableChanges};
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];for(const board of Object.values(s.shifts))syncSectionAssignments(board,config);syncServerScreen(s,cmd);return validate(s);
 }
-return {shiftFormation,openSectionOptions,startingTurns,rotationTurns,rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,staffName,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,boardTableCount,boardRotationRows,nextBoardRow,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
+return {shiftFormation,openSectionOptions,startingTurns,rotationTurns,rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutTimeLabel,cutTimeAt,scheduledCuts,placeSectionLabels,copy,list,canonical,staffName,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,boardTableCount,boardRotationRows,nextBoardRow,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
 });
 
 
