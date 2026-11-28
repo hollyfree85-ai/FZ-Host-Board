@@ -286,6 +286,13 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  case 'WAIT_STATUS':{const r=s.waiting?.[cmd.waitId];if(!r)fail('This guest was already removed.','CONFLICT');if(typeof cmd.done!=='boolean')fail('Choose Done or Undone.');r.done=cmd.done;break;}
  case 'WAIT_REMOVE':{s.waiting=s.waiting||{};if(!s.waiting[cmd.waitId])fail('This guest was already removed.','CONFLICT');delete s.waiting[cmd.waitId];break;}
  case 'SCREEN_INIT':break;
+ case 'SERVER_BROADCAST':{
+  if(!['shift','last','close'].includes(cmd.kind))fail('Choose a server announcement.');
+  if(now-cmd.at>=60000)fail('Announcement expired. Send a new one.','EXPIRED');
+  const announcements=s.serverAnnouncements||={};
+  announcements[cmd.kind]=Math.max(announcements[cmd.kind]||0,cmd.at);
+  break;
+ }
  case 'SCREEN_FOCUS':
  case 'SERVER_CALL':{
   if(cmd.type==='SERVER_CALL' && cmd.messageKind!=null && !['new','help'].includes(cmd.messageKind))fail('Choose New Table or Need Help.');
