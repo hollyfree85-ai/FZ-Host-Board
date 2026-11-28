@@ -286,11 +286,12 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  case 'WAIT_STATUS':{const r=s.waiting?.[cmd.waitId];if(!r)fail('This guest was already removed.','CONFLICT');if(typeof cmd.done!=='boolean')fail('Choose Done or Undone.');r.done=cmd.done;break;}
  case 'WAIT_REMOVE':{s.waiting=s.waiting||{};if(!s.waiting[cmd.waitId])fail('This guest was already removed.','CONFLICT');delete s.waiting[cmd.waitId];break;}
  case 'SCREEN_INIT':break;
- case 'SERVER_BROADCAST':{
-  if(!['shift','last','close'].includes(cmd.kind))fail('Choose a server announcement.');
-  if(now-cmd.at>=60000)fail('Announcement expired. Send a new one.','EXPIRED');
-  const announcements=s.serverAnnouncements||={};
-  announcements[cmd.kind]=Math.max(announcements[cmd.kind]||0,cmd.at);
+ case 'SPECIAL_SHOUT_OUT':{
+  const text=typeof cmd.text==='string'?cmd.text.trim():'';
+  if(!text||text.length>200)fail('Enter a message of up to 200 characters.');
+  if(now-cmd.at>=60000)fail('Shout-out expired. Send it again.','EXPIRED');
+  if(s.specialShoutOut?.at>cmd.at)fail('A newer shout-out is already on the board.','CONFLICT');
+  s.specialShoutOut={text,at:cmd.at};
   break;
  }
  case 'SCREEN_FOCUS':

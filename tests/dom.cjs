@@ -596,20 +596,28 @@ test('Floor keeps the Board turn and finds the next server with an available tab
  }finally{p.dom.window.close();}
 });
 
-test('all-server shout-outs send from Message without selecting a server or table',async()=>{
+test('Special Shout Out sends and replaces custom text without a server or table selection',async()=>{
  const p=await page();try{
   const d=p.w.document;
   d.querySelector('[data-entry-role="Front Host"]').click();
   d.querySelector('[data-pane="messages"]').click();
   const before=JSON.stringify(p.shared.data.app.live.shifts);
-  for(const kind of ['shift','last','close']){
-   const button=d.querySelector('[data-broadcast="'+kind+'"]');
+  const field=d.getElementById('specialShoutText'),button=d.getElementById('sendSpecialShout');
+  assert.equal(field.value,'');
+  assert.equal(button.disabled,true);
+  field.value='   ';
+  field.dispatchEvent(new p.w.Event('input'));
+  assert.equal(button.disabled,true);
+  for(const text of ["We don't have black mussels today.",'Black mussels are back.']){
+   field.value=text;
+   field.dispatchEvent(new p.w.Event('input'));
    assert.equal(button.disabled,false);
    button.click();
-   await waitFor(()=>p.shared.data.app.live.serverAnnouncements?.[kind]===NOW&&!button.disabled,'broadcast '+kind);
-   assert.match(d.getElementById('broadcastStatus').textContent,/Sent to all servers/);
+   await waitFor(()=>p.shared.data.app.live.specialShoutOut?.text===text && field.value==='','custom shout-out');
+   assert.equal(p.shared.data.app.live.specialShoutOut.at,NOW);
+   assert.equal(button.disabled,true);
+   assert.match(d.getElementById('specialShoutStatus').textContent,/Sent to the server board/);
   }
-  assert.deepEqual(Object.keys(p.shared.data.app.live.serverAnnouncements).sort(),['close','last','shift']);
   assert.equal(JSON.stringify(p.shared.data.app.live.shifts),before);
   assert.equal(d.getElementById('messageServer').value,'');
  }finally{await pause(30);p.dom.window.close();}

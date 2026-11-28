@@ -146,20 +146,27 @@ function setChoices(select,items,empty){
  select.replaceChildren(...options);
  if(items.some(([value])=>value===previous))select.value=previous;
 }
-async function sendBroadcast(event){
- const button=event.target.closest('button[data-broadcast]');
- if(!button||button.disabled||!$('roleGate').hidden||!connection?.connected||connection.busy)return;
- const buttons=$('allServerMessages').querySelectorAll('button');
- for(const action of buttons)action.disabled=true;
+function refreshSpecialShout(){
+ const text=$('specialShoutText').value.trim();
+ $('sendSpecialShout').disabled=!text||!state||!connection?.connected||connection.busy;
+}
+async function sendSpecialShout(event){
+ event.preventDefault();
+ const field=$('specialShoutText'),status=$('specialShoutStatus'),text=field.value.trim();
+ if($('sendSpecialShout').disabled||!$('roleGate').hidden||!connection?.connected||connection.busy||!text)return;
+ $('sendSpecialShout').disabled=true;
  try{
-  const result=await send('SERVER_BROADCAST',{kind:button.dataset.broadcast},{keepDialog:true,quiet:true});
-  if(result)$('broadcastStatus').textContent='Sent to all servers · '+button.textContent;
- }catch(error){$('broadcastStatus').textContent=error.message;}
- finally{refreshMessageForm();}
+  const result=await send('SPECIAL_SHOUT_OUT',{text},{keepDialog:true,quiet:true});
+  if(result){
+   if(field.value.trim()===text)field.value='';
+   status.textContent='Sent to the server board for 1 minute.';
+  }
+ }catch(error){status.textContent=error.message;}
+ finally{refreshSpecialShout();}
 }
 function refreshMessageForm(){
  if(!state)return;
- for(const button of $('allServerMessages').querySelectorAll('button'))button.disabled=!connection?.connected||connection.busy;
+ refreshSpecialShout();
  const servers=$('messageServer'),tables=$('messageTable');
  const rows=C.list(shiftBoard()?.rows).filter(r=>r.server);
  setChoices(servers,rows.map(r=>[JSON.stringify([r.id,r.server]),C.staffName(r.server)+' · '+r.section]),'Choose server');
@@ -295,7 +302,8 @@ async function checkDay(){if(!state||!connection?.connected||connection.busy)ret
 async function handleVoiceCommand(value){clearTimeout(toastTimer);$('toast').style.display='none';try{if(value==='tutup'){$('logout').click();return;}if(value==='buka'){if(!state||!config)throw Error('Wait until the database is ready.');document.querySelectorAll('dialog[open]').forEach(d=>d.close());managerAuthorized=false;role='Front Host';$('role').value=role;sessionStorage.setItem('fz_next_entered','1');$('roleGate').hidden=true;render();pane('floor');communications?.publishPresence();communications?.reservationAlertCheck();return;}if(!$('roleGate').hidden)throw Error('Say Buka before using table commands.');if(!state||!connection?.connected||!connection.config)throw Error('Wait until LIVE.');if(connection.busy)throw Error('One action is still saving. Repeat after confirmation.');const {table,action}=value;if(!state.tables[table])throw Error('Unknown table '+table);const p=C.partyFor(state,table),guard={table,expectedPartyId:p?.id||'',...(p?{partyId:p.id,partyVersion:p.version||1}:{})};if(action==='seat'){const b=shiftBoard(),row=VoiceCommands.resolveServer(value.server,b.rows.filter(r=>!r.cut&&Object.values(b.assignments).includes(r.id)));if(!row){if(!value.englishName&&voiceCommands?.captureEnglishName(value))return;throw Error('Server not recognized.');}if(!b.assignments[table])throw Error('Assign a server to this table section first.');if(state.tables[table].status!=='ready')throw Error(table+' is not READY.');const warnings=C.risk(state,selectedShift,row.id,connection.now());if(warnings.length&&!confirm('RECENT PARTY WARNING — '+C.staffName(row.server)+'\nSeat '+table+' anyway?'))return;await send('SEAT',{table,rowId:row.id,people:value.people,secondary:[],confirmedRiskIds:warnings.map(x=>x.id)},{quiet:true,message:table+' SEATED · '+value.people+' GUESTS · '+C.staffName(row.server)});}else if(action==='reserved')await send('TABLE_HOLD',{table,reserved:true},{quiet:true,message:table+' RESERVED'});else if(action==='delete'){if(!p)throw Error('No active party on '+table);await send('DELETE',guard,{quiet:true,message:table+' PARTY DELETED · UNDO AVAILABLE'});}else if(action==='ready'||action==='cleaning')await send('STATUS',{...guard,status:action},{quiet:true,message:table+' '+(action==='ready'?'READY':'CLEANING')});closeTable();pane('floor');}catch(e){voiceCommands?.display('VOICE ERROR · RETRY');}}
 async function boot(){initClassic();
  $('messageForm').onsubmit=sendServerMessage;
- $('allServerMessages').onclick=sendBroadcast;
+ $('specialShoutForm').onsubmit=sendSpecialShout;
+ $('specialShoutText').oninput=()=>{$('specialShoutStatus').textContent='';refreshSpecialShout();};
  for(const id of ['messageServer','messageTable'])$(id).onchange=()=>{$('messageStatus').textContent='';refreshMessageForm();};
  voiceCommands=new VoiceCommands({button:$('voiceToggle'),onError:()=>voiceCommands?.display('VOICE ERROR · RETRY'),onCommand:handleVoiceCommand});document.querySelectorAll('[data-pane]').forEach(b=>b.onclick=()=>pane(b.dataset.pane));$('waitingForm').onsubmit=async e=>{e.preventDefault();const name=$('waitingName').value,phone=$('waitingPhone').value,people=Number($('waitingGuests').value);try{const result=await send('WAIT_SAVE',{name,phone,people},{keepDialog:true,message:'GUEST SAVED TO WAITING LIST'});if(result&&$('waitingName').value===name&&$('waitingPhone').value===phone)$('waitingForm').reset();}catch(_){};};$('modalClose').onclick=closeDialog;$('shift').value=selectedShift;$('shift').onchange=()=>{selectedShift=$('shift').value;localStorage.setItem('fz_next_shift',selectedShift);seatDraft={};lastPanel='';render();};$('role').onchange=()=>changeRole($('role').value);const menuGroups=[['SHIFT & SECTIONS',['setup','join','beeper','map','formation','correct']],['STAFF',['roster','cut','beeperHistory']],['DATA & COMMUNICATION',['tableHistory','reservations','chat','shout','password','bar','undo','pending','clearAM','clearPM']]];$('operations').innerHTML=menuGroups.map(([title,ids])=>'<section class="menu-group"><div class="menu-group-title">'+title+'</div><div class="menu-grid">'+operations.filter(([id])=>ids.includes(id)).map(([id,title,desc])=>`<button class="op-card ${id.startsWith('clear')?'danger':''}" data-op="${id}" ${id==='tableHistory'?'data-owner-only hidden':''}><strong>${title}</strong><small>${desc}</small></button>`).join('')+'</div></section>').join('');document.querySelectorAll('[data-op]').forEach(b=>b.onclick=()=>operation(b.dataset.op));$('chatOpen').onclick=()=>communications?.openChat();
  const options=await fetch('./app-config.json',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('App configuration missing.');return r.json();});connection=new HostConnection(options);

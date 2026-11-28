@@ -362,13 +362,15 @@ nav{grid-template-columns:repeat(5,minmax(0,1fr))}nav button{min-width:0;padding
 #extraTables legend { padding: 0 .35rem; font-weight: 750; }
 #returnToSetup { margin-top: .5rem; }
 
-#allServerMessages { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid #3b556a; }
-#allServerTitle { margin: 0 0 .6em; font-size: clamp(1.6rem, 2.5vw, 3rem); }
-.broadcast-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: .7rem; }
-.broadcast-actions button { min-height: 3.3em; background: #ffe56a; color: #291d0b; border: 2px solid #dfac2e; font-size: clamp(1.15rem, 1.85vw, 2.25rem); line-height: 1.12; }
-.broadcast-actions button:disabled { opacity: .6; }
-#broadcastStatus { margin: .45em 0 0; font-size: 1.2rem; }
-@media (max-width: 42rem) { .broadcast-actions { grid-template-columns: 1fr; } }
+#specialShoutForm { margin-top: 1.4rem; padding-top: 1rem; border-top: 1px solid #3b556a; }
+#specialShoutTitle { margin: 0 0 .5em; font-size: clamp(1.6rem, 2.5vw, 3rem); }
+.shout-compose { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .65rem; }
+.shout-compose input, .shout-compose button { font-family: inherit; font-size: clamp(1.12rem, 1.8vw, 2rem); min-height: 2.75em; }
+.shout-compose input { width: 100%; min-width: 0; padding: .45em .65em; border: 1px solid #7090a8; border-radius: .5rem; background: #102438; color: white; }
+.shout-compose button { padding: .45em 1.15em; background: #ffe56a; color: #291d0b; border: 2px solid #dfac2e; }
+.shout-compose button:disabled { opacity: .55; }
+#specialShoutStatus { margin: .4em 0 0; font-size: 1.12rem; }
+@media (max-width: 34rem) { .shout-compose { grid-template-columns: minmax(0,1fr); } }
 
 /* Host stand reading sizes. Keep the 15 rotation positions aligned on wide screens. */
 #board, #settings {
