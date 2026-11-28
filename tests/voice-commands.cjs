@@ -4,4 +4,14 @@ test('Voice table actions recognize digits, spoken numbers and letter pronunciat
 
 const {resolveServer}=require('../dist/voice-commands.js');
 test('Server matching tolerates Indonesian English spelling, nicknames and small pronunciation errors',()=>{const rows=['Angela Grizzad','A.J.','Alainna Montalvo','Cynthia Risner','Megan Meadows','Libby Lane'].map((server,i)=>({server,id:String(i)}));for(const [spoken,name]of [['Anjela','Angela Grizzad'],['Ariana Garner','A.J.'],['Alayna','Alainna Montalvo'],['Sintia','Cynthia Risner'],['Meghan','Megan Meadows'],['Libi','Libby Lane'],['Angella','Angela Grizzad'],['Megan Medows','Megan Meadows']])assert.equal(resolveServer(spoken,rows)?.server,name,spoken);assert.equal(resolveServer('Nobody',rows),null);});
-test('Similar first names are not guessed when multiple active servers match',()=>{const rows=[{server:'Caitlin Dillon'},{server:'Katelyn Ramsey'},{server:'Sara Swift'},{server:'Sarah Kibler'}];assert.equal(resolveServer('Kaitlin',rows),null);assert.equal(resolveServer('Sara',rows),null);assert.equal(resolveServer('Sarah Kibler',rows)?.server,'Sarah Kibler');assert.equal(resolveServer('Caitlin Dillon',rows)?.server,'Caitlin Dillon');});
+test('Similar first names are not guessed when multiple active servers match',()=>{const rows=[{server:'Caitlin Dillon'},{server:'Katelyn Ramsey'},{server:'Sara Swift'},{server:'Sarah Kibler'}];assert.equal(resolveServer('Kaitlin',rows),null);assert.equal(resolveServer('Sara',rows)?.server,'Sara Swift');assert.equal(resolveServer('Sarah Kibler',rows)?.server,'Sarah Kibler');assert.equal(resolveServer('Caitlin Dillon',rows)?.server,'Caitlin Dillon');});
+
+test('call names address the correct full employee identity in the same shift',()=>{
+ const {staffName}=require('../dist/core.js');
+ const full=['Megan Meadows','Megan Sisk','Cynthia Risner','Sara Swift','Sarah Kibler','Hannah Dempsey','A.J.'];
+ const rows=full.map(server=>({server}));
+ const calls=['Megan','Sisk','Cyndi','Sara','Kibbler','Hannah','A.J.'];
+ assert.deepEqual(full.map(staffName),calls);
+ calls.forEach((name,i)=>assert.equal(resolveServer(name,rows),rows[i]));
+ assert.equal(staffName('  Sarah   Kibbler '),'Kibbler');
+});

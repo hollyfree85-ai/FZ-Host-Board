@@ -2,6 +2,18 @@
 'use strict';
 const copy=x=>JSON.parse(JSON.stringify(x)),list=x=>Array.isArray(x)?x:Object.values(x||{}),fail=(m,code='INVALID')=>{const e=new Error(m);e.code=code;throw e;};
 const canonical=s=>String(s||'').trim().replace(/^AJ$/i,'A.J.');
+const staffAliases = new Map([
+  ['megan meadows', 'Megan'],
+  ['megan sisk', 'Sisk'],
+  ['cynthia risner', 'Cyndi'],
+  ['sara swift', 'Sara'],
+  ['sarah kibler', 'Kibbler'],
+  ['sarah kibbler', 'Kibbler']
+]);
+function staffName(value) {
+  const name = String(value || '').trim().replace(/\s+/g, ' ');
+  return staffAliases.get(name.toLowerCase()) || name.split(' ')[0];
+}
 function uid(){const bytes=new Uint8Array(16);crypto.getRandomValues(bytes);bytes[6]=(bytes[6]&15)|64;bytes[8]=(bytes[8]&63)|128;const h=Array.from(bytes,x=>x.toString(16).padStart(2,'0')).join('');return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);}
 function dayAt(at=Date.now()){const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',hourCycle:'h23'}).formatToParts(new Date(at)).map(x=>[x.type,x.value]));const d=new Date(p.year+'-'+p.month+'-'+p.day+'T12:00:00Z');if(+p.hour<4)d.setUTCDate(d.getUTCDate()-1);return d.toISOString().slice(0,10);}
 function reservationTime(date,time){if(!/^\d{4}-\d{2}-\d{2}$/.test(date||'')||!/^\d{2}:\d{2}$/.test(time||''))return NaN;const target=Date.parse(date+'T'+time+':00Z');if(!Number.isFinite(target))return NaN;let instant=target;const fmt=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'});for(let i=0;i<3;i++){const x=Object.fromEntries(fmt.formatToParts(instant).map(p=>[p.type,p.value]));const local=Date.parse(x.year+'-'+x.month+'-'+x.day+'T'+x.hour+':'+x.minute+':00Z');instant+=target-local;}return instant;}
@@ -375,7 +387,7 @@ function reduce(raw,cmd,config,now=cmd.at){let s=normalize(raw,config);if(!cmd.i
  const tableChanges=tableHistoryChanges(tableBefore,s,cmd,tableRestore);if(tableChanges.length)s.tableHistory[cmd.id]={day:s.day,at:cmd.at,sequence:Object.keys(s.tableHistory).length+1,changes:tableChanges};
  s.revision=(s.revision||0)+1;s.updatedAt=cmd.at;s.receipts[cmd.id]={type:cmd.type,at:cmd.at};for(const id of Object.keys(s.receipts).sort((a,z)=>s.receipts[z].at-s.receipts[a].at).slice(80))delete s.receipts[id];for(const board of Object.values(s.shifts))syncSectionAssignments(board,config);syncServerScreen(s,cmd);return validate(s);
 }
-return {shiftFormation,openSectionOptions,startingTurns,rotationTurns,rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,boardTableCount,boardRotationRows,nextBoardRow,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
+return {shiftFormation,openSectionOptions,startingTurns,rotationTurns,rowHasSection,sharedSections,fixedSection,tableRows,tableSectionLabel,syncSectionAssignments,sectionFor,isBarSection,partyLimit,checkPartyLimit,tableHistoryRows,reservationUndoExpiry,reservationUndoAvailable,reservationUndoExpired,retainBeeperHistory,cutSchedule,cutRowKey,cutRosterKey,pmCutPlan,cutAdvice,placeSectionLabels,copy,list,canonical,staffName,uid,dayAt,reservationTime,reservationDue,initial,normalize,rowOf,autoSkip,slots,sectionOrder,rotationRows,boardTableCount,boardRotationRows,nextBoardRow,recoveryMs,latestSeating,deferredTurn,partyFor,members,risk,reduce,validate};
 });
 
 

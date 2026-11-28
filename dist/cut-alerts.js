@@ -23,13 +23,13 @@ class CutAlerts{
   if(plan.closerMissing)add('p','No closer selected. Set Closer in PM Formation & Servers before choosing who to cut.',this.dialog,'cut-warning');
   if(plan.shortStaff)add('p','Only '+plan.rows.length+' employees are active. Keep the available closing team.',this.dialog,'cut-warning');
   add('h3','KEEP FOR CLOSING');
-  for(const {row,reasons}of plan.closing)add('p',row.server+' · '+(row.section==='BAR'?'BAR':'S'+row.section)+' · '+reasons.join(' / '),this.dialog,'cut-keep');
+  for(const {row,reasons}of plan.closing)add('p',C.staffName(row.server)+' · '+(row.section==='BAR'?'BAR':'S'+row.section)+' · '+reasons.join(' / '),this.dialog,'cut-keep');
   add('h3',stage.id==='first'?'FIRST CUT · '+stage.candidates.length+' TO REVIEW':'SECOND CUT · '+stage.candidates.length+' TO REVIEW');
   if(plan.weekend&&stage.id==='first')add('p',plan.firstCuts+' already cut in this review. Up to '+Math.max(0,4-plan.firstCuts)+' more; closing coverage stays protected.',this.dialog,'helper');
   if(!stage.candidates.length)add('p','No pending cut decisions. Review complete, or no eligible employees remain.',this.dialog,'cut-empty');
   for(const row of stage.candidates){
    const box=add('section','',this.dialog,'cut-review-row');box.dataset.cutRow=row.id;
-   add('h3',row.server+' · '+(row.section==='BAR'?'BAR':'S'+row.section),box);
+   add('h3',C.staffName(row.server)+' · '+(row.section==='BAR'?'BAR':'S'+row.section),box);
    add('p',(row.workShift||'PM')+(row.workTomorrowAM?' · Work tomorrow AM':''),box);
    const tables=Object.entries(state.shifts.PM.assignments||{}).filter(([,id])=>id===row.id).map(([id])=>id);add('p','Tables: '+(tables.join(', ')||'None assigned'),box,'helper');
    const actions=add('div','',box,'cut-review-actions');
